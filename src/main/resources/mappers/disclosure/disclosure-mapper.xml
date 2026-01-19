@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.monstersinc.stock101.disclosure.repository.DisclosureRepository">
+
+    <resultMap id="DisclosureMap" type="com.monstersinc.stock101.disclosure.domain.DisclosureDocument">
+        <id property="documentId" column="document_id"/>
+        <result property="stockId" column="stock_id"/>
+        <result property="title" column="title"/>
+        <result property="documentType" column="document_type"/>
+        <result property="filePath" column="file_path"/>
+        <result property="fileName" column="file_name"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="uploadDate" column="upload_date"/>
+        <result property="uploadedBy" column="uploaded_by"/>
+        <result property="processingStatus" column="processing_status"/>
+        <result property="totalPages" column="total_pages"/>
+        <result property="totalChunks" column="total_chunks"/>
+        <result property="metadata" column="metadata"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="save" useGeneratedKeys="true" keyProperty="documentId">
+        INSERT INTO disclosure_documents (
+            stock_id, title, document_type, file_path, file_name, file_size, 
+            upload_date, uploaded_by, processing_status, metadata
+        ) VALUES (
+            #{stockId}, #{title}, #{documentType}, #{filePath}, #{fileName}, #{fileSize},
+            NOW(), #{uploadedBy}, #{processingStatus}, #{metadata}
+        )
+    </insert>
+
+    <select id="findById" resultMap="DisclosureMap">
+        SELECT * FROM disclosure_documents WHERE document_id = #{documentId}
+    </select>
+
+    <select id="findByStockId" resultMap="DisclosureMap">
+        SELECT * FROM disclosure_documents WHERE stock_id = #{stockId} ORDER BY upload_date DESC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE disclosure_documents 
+        SET processing_status = #{status},
+            error_message = #{errorMessage}
+        WHERE document_id = #{documentId}
+    </update>
+
+    <update id="updateMetadata">
+        UPDATE disclosure_documents 
+        SET total_pages = #{totalPages},
+            total_chunks = #{totalChunks},
+            metadata = #{metadata},
+            processing_status = 'COMPLETED'
+        WHERE document_id = #{documentId}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM disclosure_documents WHERE document_id = #{documentId}
+    </delete>
+
+</mapper>
