@@ -99,3 +99,36 @@ springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
 
+# LangChain4j Configuration
+langchain4j:
+  ollama:
+    chat-model:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: qwen2.5:14b
+      temperature: 0.1
+      timeout: 120s
+    embedding-model:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: qwen2.5:14b
+      timeout: 120s
+
+  qdrant:
+     host: ${QDRANT_HOST:localhost}
+     port: ${QDRANT_PORT:6334}
+     collection-name: stock_disclosures
+     use-tls: false
+
+# RAG 및 공시보고서 설정
+disclosure:
+  upload-dir: ${DISCLOSURE_UPLOAD_DIR:./uploads/disclosures}
+  allowed-extensions: pdf
+  max-file-size: 52428800
+  chunk:
+    size: 500
+    overlap: 100
+  retrieval:
+    top-k: 10
+    similarity-threshold: 0.7
+  processing:
+    async: true
+    thread-pool-size: 5
