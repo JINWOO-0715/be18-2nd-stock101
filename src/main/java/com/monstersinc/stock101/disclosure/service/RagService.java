@@ -61,7 +61,7 @@ public class RagService {
 
         // 2. 컨텍스트 구성
         String context = relevantSegments.stream()
-                .map(segment -> String.format("[Page %s] %s", segment.metadata().get("pageNumber"), segment.text()))
+                .map(segment -> String.format("[Page %s] %s", segment.metadata().getString("pageNumber"), segment.text()))
                 .collect(Collectors.joining("\n\n"));
 
         // 3. 프롬프트 구성
@@ -72,11 +72,15 @@ public class RagService {
 
         // 5. 응답 DTO 구성
         List<DisclosureAnalysisResponse.ChunkReference> references = relevantSegments.stream()
-                .map(segment -> DisclosureAnalysisResponse.ChunkReference.builder()
-                        .chunkId(0L) // Qdrant 사용 시 ID 매핑 로직 필요 (현재는 0으로 처리)
-                        .pageNumber(Integer.parseInt(segment.metadata().getOrDefault("pageNumber", "0")))
-                        .excerpt(segment.text().substring(0, Math.min(100, segment.text().length())) + "...")
-                        .build())
+                .map(segment -> {
+                    String pageStr = segment.metadata().getString("pageNumber");
+                    int pageNum = (pageStr != null) ? Integer.parseInt(pageStr) : 0;
+                    return DisclosureAnalysisResponse.ChunkReference.builder()
+                            .chunkId(0L) // Qdrant 사용 시 ID 매핑 로직 필요
+                            .pageNumber(pageNum)
+                            .excerpt(segment.text().substring(0, Math.min(100, segment.text().length())) + "...")
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         return DisclosureAnalysisResponse.builder()

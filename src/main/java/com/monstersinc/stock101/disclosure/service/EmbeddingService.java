@@ -32,8 +32,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EmbeddingService {
 
-    private final EmbeddingModel embeddingModel;
-    private final EmbeddingStore<TextSegment> embeddingStore;
+    private EmbeddingModel embeddingModel;
+    private EmbeddingStore<TextSegment> embeddingStore;
 
     @Value("${langchain4j.ollama.embedding-model.base-url}")
     private String ollamaBaseUrl;
@@ -78,9 +78,9 @@ public class EmbeddingService {
         // LangChain4j 세그먼트 생성 (Metadata 포함)
         for (TextChunker.TextChunk textChunk : textChunks) {
             Metadata metadata = new Metadata();
-            metadata.add("documentId", String.valueOf(documentId));
-            metadata.add("pageNumber", String.valueOf(textChunk.getPageNumber()));
-            metadata.add("fileSource", "stock_disclosure"); // 예시 메타데이터
+            metadata.put("documentId", String.valueOf(documentId));
+            metadata.put("pageNumber", String.valueOf(textChunk.getPageNumber()));
+            metadata.put("fileSource", "stock_disclosure"); // 예시 메타데이터
 
             segments.add(TextSegment.from(textChunk.getText(), metadata));
         }
@@ -106,9 +106,14 @@ public class EmbeddingService {
         // TODO: Metadata에 stockId 추가 필요. 우선은 전체 검색.
         
         Embedding queryEmbedding = embeddingModel.embed(query).content();
-        List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(queryEmbedding, topK);
-
-        return matches.stream()
+        
+        // search() 메서드 사용 (findRelevant는 deprecated)
+        dev.langchain4j.store.embedding.EmbeddingSearchRequest searchRequest = dev.langchain4j.store.embedding.EmbeddingSearchRequest.builder()
+                .queryEmbedding(queryEmbedding)
+                .maxResults(topK)
+                .build();
+        
+        return embeddingStore.search(searchRequest).matches().stream()
                 .map(EmbeddingMatch::embedded)
                 .collect(Collectors.toList());
     }
