@@ -3,8 +3,9 @@ package com.monstersinc.stock101.disclosure.service;
 import com.monstersinc.stock101.disclosure.domain.DocumentChunk;
 import com.monstersinc.stock101.disclosure.dto.DisclosureAnalysisRequest;
 import com.monstersinc.stock101.disclosure.dto.DisclosureAnalysisResponse;
+import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.ollama.OllamaChatModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,10 +29,10 @@ public class RagService {
     // 또는 EmbeddingService를 여기서 사용하여 검색
     private final EmbeddingService embeddingService;
 
-    @Value("${langchain4j.open-ai.chat-model.api-key}")
-    private String openAiApiKey;
+    @Value("${langchain4j.ollama.chat-model.base-url}")
+    private String ollamaBaseUrl;
 
-    @Value("${langchain4j.open-ai.chat-model.model-name}")
+    @Value("${langchain4j.ollama.chat-model.model-name}")
     private String modelName;
 
     @Value("${disclosure.retrieval.top-k:10}")
@@ -41,10 +42,11 @@ public class RagService {
 
     @PostConstruct
     public void init() {
-        this.chatModel = OpenAiChatModel.builder()
-                .apiKey(openAiApiKey)
+        this.chatModel = OllamaChatModel.builder()
+                .baseUrl(ollamaBaseUrl)
                 .modelName(modelName)
-                .temperature(0.2)
+                .temperature(0.1)
+                .timeout(java.time.Duration.ofMinutes(5))
                 .build();
     }
 
@@ -55,11 +57,11 @@ public class RagService {
         long startTime = System.currentTimeMillis();
 
         // 1. 관련 청크 검색
-        List<DocumentChunk> relevantChunks = embeddingService.findSimilarChunks(stockId, request.getQuery(), topK);
+        List<TextSegment> relevantSegments = embeddingService.findSimilarChunks(stockId, request.getQuery(), topK);
 
         // 2. 컨텍스트 구성
-        String context = relevantChunks.stream()
-                .map(chunk -> String.format("[Page %d] %s", chunk.getPageNumber(), chunk.getChunkText()))
+        String context = relevantSegments.stream()
+                .map(segment -> String.format("[Page %s] %s", segment.metadata().get("pageNumber"), segment.text()))
                 .collect(Collectors.joining("\n\n"));
 
         // 3. 프롬프트 구성
@@ -69,13 +71,11 @@ public class RagService {
         String analysisResult = chatModel.generate(prompt);
 
         // 5. 응답 DTO 구성
-        List<DisclosureAnalysisResponse.ChunkReference> references = relevantChunks.stream()
-                .map(chunk -> DisclosureAnalysisResponse.ChunkReference.builder()
-                        .chunkId(chunk.getChunkId())
-                        .pageNumber(chunk.getPageNumber())
-                        .excerpt(
-                                chunk.getChunkText().substring(0, Math.min(100, chunk.getChunkText().length())) + "...")
-                        // 유사도 점수는 현재 EmbeddingService에서 반환되지 않으므로 null 또는 수정 필요
+        List<DisclosureAnalysisResponse.ChunkReference> references = relevantSegments.stream()
+                .map(segment -> DisclosureAnalysisResponse.ChunkReference.builder()
+                        .chunkId(0L) // Qdrant 사용 시 ID 매핑 로직 필요 (현재는 0으로 처리)
+                        .pageNumber(Integer.parseInt(segment.metadata().getOrDefault("pageNumber", "0")))
+                        .excerpt(segment.text().substring(0, Math.min(100, segment.text().length())) + "...")
                         .build())
                 .collect(Collectors.toList());
 
@@ -84,7 +84,7 @@ public class RagService {
                 .sources(references)
                 .confidenceScore(0.85) // 임시 값
                 .processingTimeMs(System.currentTimeMillis() - startTime)
-                .tokensUsed(0) // 토큰 계산 로직 추가 필요
+                .tokensUsed(0) // 로컬 모델은 토큰 계산 정확치 않음
                 .build();
     }
 

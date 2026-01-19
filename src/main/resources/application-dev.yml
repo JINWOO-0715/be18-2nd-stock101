@@ -102,15 +102,23 @@ spring:
 
 # LangChain4j Configuration
 langchain4j:
-  open-ai:
+  ollama:
     chat-model:
-      api-key: ${OPENAI_API_KEY}
-      model-name: gpt-4-turbo-preview
-      temperature: 0.2
-      max-tokens: 2000
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: qwen2.5:14b
+      temperature: 0.1
+      timeout: 120s
     embedding-model:
-      api-key: ${OPENAI_API_KEY}
-      model-name: text-embedding-ada-002
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: qwen2.5:14b
+      timeout: 120s
+
+  qdrant:
+     host: ${QDRANT_HOST:localhost}
+     port: ${QDRANT_PORT:6334}  # GRPC port
+     collection-name: stock_disclosures
+     use-tls: false
+
 
 # RAG 및 공시보고서 설정
 disclosure:

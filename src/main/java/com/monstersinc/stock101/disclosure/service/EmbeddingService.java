@@ -3,10 +3,14 @@ package com.monstersinc.stock101.disclosure.service;
 import com.monstersinc.stock101.disclosure.domain.DocumentChunk;
 import com.monstersinc.stock101.disclosure.repository.DocumentChunkRepository;
 import com.monstersinc.stock101.disclosure.util.TextChunker;
+import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
+import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
+import dev.langchain4j.store.embedding.EmbeddingMatch;
+import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.qdrant.QdrantEmbeddingStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,21 +32,36 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EmbeddingService {
 
-    private final DocumentChunkRepository chunkRepository;
+    private final EmbeddingModel embeddingModel;
+    private final EmbeddingStore<TextSegment> embeddingStore;
 
-    @Value("${langchain4j.open-ai.embedding-model.api-key}")
-    private String openAiApiKey;
+    @Value("${langchain4j.ollama.embedding-model.base-url}")
+    private String ollamaBaseUrl;
 
-    @Value("${langchain4j.open-ai.embedding-model.model-name}")
+    @Value("${langchain4j.ollama.embedding-model.model-name}")
     private String modelName;
 
-    private EmbeddingModel embeddingModel;
+    @Value("${langchain4j.qdrant.host}")
+    private String qdrantHost;
+
+    @Value("${langchain4j.qdrant.port}")
+    private int qdrantPort;
+
+    @Value("${langchain4j.qdrant.collection-name}")
+    private String collectionName;
 
     @PostConstruct
     public void init() {
-        this.embeddingModel = OpenAiEmbeddingModel.builder()
-                .apiKey(openAiApiKey)
+        this.embeddingModel = OllamaEmbeddingModel.builder()
+                .baseUrl(ollamaBaseUrl)
                 .modelName(modelName)
+                .timeout(java.time.Duration.ofMinutes(5))
+                .build();
+
+        this.embeddingStore = QdrantEmbeddingStore.builder()
+                .host(qdrantHost)
+                .port(qdrantPort)
+                .collectionName(collectionName)
                 .build();
     }
 
@@ -56,99 +75,48 @@ public class EmbeddingService {
         List<DocumentChunk> documentChunks = new ArrayList<>();
         List<TextSegment> segments = new ArrayList<>();
 
-        // LangChain4j 세그먼트 생성
+        // LangChain4j 세그먼트 생성 (Metadata 포함)
         for (TextChunker.TextChunk textChunk : textChunks) {
-            segments.add(TextSegment.from(textChunk.getText()));
+            Metadata metadata = new Metadata();
+            metadata.add("documentId", String.valueOf(documentId));
+            metadata.add("pageNumber", String.valueOf(textChunk.getPageNumber()));
+            metadata.add("fileSource", "stock_disclosure"); // 예시 메타데이터
+
+            segments.add(TextSegment.from(textChunk.getText(), metadata));
         }
 
-        // 배치 처리로 임베딩 생성 (비용 및 성능 최적화)
-        // OpenAI API 제한을 고려하여 작은 배치로 나누는 것이 좋을 수 있음
-        List<Embedding> embeddings = embeddingModel.embedAll(segments).content();
-
-        if (embeddings.size() != textChunks.size()) {
-            throw new RuntimeException("Embedding count mismatch");
-        }
-
-        for (int i = 0; i < textChunks.size(); i++) {
-            TextChunker.TextChunk textChunk = textChunks.get(i);
-            Embedding embedding = embeddings.get(i);
-
-            DocumentChunk documentChunk = DocumentChunk.builder()
-                    .documentId(documentId)
-                    .chunkIndex(textChunk.getChunkIndex())
-                    .chunkText(textChunk.getText())
-                    .pageNumber(textChunk.getPageNumber())
-                    .startChar(textChunk.getStartChar())
-                    .endChar(textChunk.getEndChar())
-                    .tokenCount(textChunk.getTokenCount())
-                    .build();
-
-            // 벡터 변환 및 설정
-            documentChunk.setEmbeddingFromFloatArray(embedding.vector());
-
-            documentChunks.add(documentChunk);
-        }
-
-        // DB 저장 (Bulk Insert)
-        // 대량 데이터의 경우 더 작은 배치로 나누어 저장하는 것이 좋음
-        int batchSize = 100;
-        for (int i = 0; i < documentChunks.size(); i += batchSize) {
-            int end = Math.min(i + batchSize, documentChunks.size());
-            chunkRepository.saveAll(documentChunks.subList(i, end));
-        }
-
-        log.info("Saved {} embedded chunks for document {}", documentChunks.size(), documentId);
+        // 임베딩 생성 및 Qdrant 저장
+        log.info("Embedding and pushing to Qdrant...");
+        embeddingStore.addAll(embeddingModel.embedAll(segments).content(), segments);
+        
+        log.info("Saved {} embedded chunks for document {} to Qdrant", segments.size(), documentId);
     }
 
     /**
      * 유사한 청크 검색 (메모리 내 코사인 유사도 계산)
      * 주의: 데이터가 많아지면 벡터 DB 전용 솔루션이나 pgvector 등으로 마이그레이션 필수
      */
-    public List<DocumentChunk> findSimilarChunks(Long stockId, String query, int topK) {
-        // 1. 쿼리 임베딩 생성
+    /**
+     * 유사한 청크 검색 (Qdrant 사용)
+     */
+    public List<TextSegment> findSimilarChunks(Long stockId, String query, int topK) {
+        // Qdrant에서 검색 (Cosine Similarity 기본)
+        // Filter를 사용하여 특정 문서(documentId) 범위 내에서만 검색할 수도 있음.
+        // 여기서는 stockId로 필터링하려면 Metadata에 stockId가 있어야 함. 현재는 documentId만 있음.
+        // TODO: Metadata에 stockId 추가 필요. 우선은 전체 검색.
+        
         Embedding queryEmbedding = embeddingModel.embed(query).content();
+        List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(queryEmbedding, topK);
 
-        // 2. 해당 종목의 모든 청크 로드 (성능 주의!)
-        List<DocumentChunk> allChunks = chunkRepository.findAllEmbeddingsByStockId(stockId);
-
-        // 3. 코사인 유사도 계산 및 정렬
-        return allChunks.stream()
-                .map(chunk -> {
-                    double similarity = cosineSimilarity(queryEmbedding.vector(), chunk.getEmbeddingAsFloatArray());
-                    // 유사도 점수를 임시로 저장할 방법이 필요함.
-                    // 여기서는 DTO 변환 없이 로직 상에서만 처리하거나, DocumentChunk에 score 필드가 없으므로 Pair로 반환
-                    return new ScoredChunk(chunk, similarity);
-                })
-                .sorted(Comparator.comparingDouble(ScoredChunk::getScore).reversed())
-                .limit(topK)
-                .map(ScoredChunk::getChunk)
+        return matches.stream()
+                .map(EmbeddingMatch::embedded)
                 .collect(Collectors.toList());
     }
 
     /**
      * 코사인 유사도 계산
      */
-    private double cosineSimilarity(float[] vectorA, float[] vectorB) {
-        if (vectorA.length != vectorB.length) {
-            return 0.0;
-        }
 
-        double dotProduct = 0.0;
-        double normA = 0.0;
-        double normB = 0.0;
-
-        for (int i = 0; i < vectorA.length; i++) {
-            dotProduct += vectorA[i] * vectorB[i];
-            normA += vectorA[i] * vectorA[i];
-            normB += vectorB[i] * vectorB[i];
-        }
-
-        if (normA == 0 || normB == 0) {
-            return 0.0;
-        }
-
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-    }
 
     @lombok.Value
     private static class ScoredChunk {

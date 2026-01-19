@@ -119,17 +119,26 @@
             <version>0.36.2</version>
         </dependency>
 
-        <!-- LangChain4j OpenAI Integration -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-open-ai</artifactId>
-            <version>0.36.2</version>
-        </dependency>
+
 
         <!-- LangChain4j Embeddings -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
+            <version>0.36.2</version>
+        </dependency>
+
+        <!-- LangChain4j Ollama Integration -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-ollama</artifactId>
+            <version>0.36.2</version>
+        </dependency>
+
+        <!-- LangChain4j Qdrant Integration -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-qdrant</artifactId>
             <version>0.36.2</version>
         </dependency>
 
@@ -147,19 +156,9 @@
             <version>2.9.2</version>
         </dependency>
 
-        <!-- PostgreSQL JDBC Driver (이미 있을 수 있음) -->
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
-        </dependency>
 
-        <!-- PGVector support for LangChain4j -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-pgvector</artifactId>
-            <version>0.36.2</version>
-        </dependency>
+
+
 
         <!-- Commons FileUpload -->
         <dependency>
