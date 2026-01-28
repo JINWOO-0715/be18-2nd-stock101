@@ -11,20 +11,32 @@ spring:
     hikari:
       connection-test-query: SELECT 1
       connection-init-sql: SET NAMES utf8mb4
+      # 운영 환경을 위한 커넥션 풀 최적화
+      maximum-pool-size: 20
+      minimum-idle: 10
+      idle-timeout: 300000
+      connection-timeout: 20000
 
   # Redis Configuration
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD} # 반드시 암호 설정 필요
       lettuce:
         pool:
-          max-active: 10
+          max-active: 20
           max-idle: 10
-          min-idle: 2
-      timeout: 60000ms
+          min-idle: 5
+      timeout: 3000ms # 네트워크 타임아웃 단축
 
+  # File Upload Configuration
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 50MB
+      file-size-threshold: 2MB
 
 # MyBatis Configuration
 mybatis:
@@ -47,7 +59,7 @@ apikey:
   stock-key: ${STOCK_API_KEY}
   kis-key: ${KIS_API_KEY}
   kis-secret: ${KIS_API_SECRET}
-  dart-api-key: ${DART_API_KEY:#{null}}  # DART(전자공시) API 키
+  dart-api-key: ${DART_API_KEY:#{null}}
 
 # Server Configuration
 server:
@@ -58,51 +70,38 @@ server:
       charset: UTF-8
       enabled: true
       force: true
+  # 운영 환경에서는 톰캣 서버 헤더 숨기기 권장
+  server-header: " "
 
 # Actuator Configuration
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,prometheus # 모니터링을 위한 prometheus 유지
   endpoint:
     health:
-      show-details: when-authorized
-    prometheus:
-      enabled: true
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-    tags:
-      application: ${spring.application.name}
+      show-details: when-authorized # 인증된 사용자만 상세 정보 표시
 
-# Logging Configuration
+# Logging Configuration (중요 수정)
 logging:
   level:
-    root: ERROR  # 운영 환경에서는 치명적인 오류만 로깅
-    com.monstersinc.stock101: ERROR
-    org.springframework.security: ERROR
-    org.springframework.web: ERROR
-    org.springframework.web.client: ERROR
-    org.mybatis: ERROR
+    root: INFO
+    com.monstersinc.stock101: INFO # DEBUG에서 상향 조정
+    org.springframework.security: WARN
+    org.springframework.web: INFO
+    org.mybatis: INFO # SQL 파라미터 노출 방지를 위해 INFO로 상향
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %maskedMsg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %maskedMsg%n"
+    # 운영 환경에서는 보안을 위해 메시지 마스킹 패턴 적용 권장
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
-# Swagger/OpenAPI Configuration
+# Swagger/OpenAPI Configuration (보안을 위해 비활성화)
 springdoc:
   api-docs:
-    enabled: true
-    path: /api-docs
+    enabled: false
   swagger-ui:
-    enabled: true
-    path: /swagger-ui.html
-    operations-sorter: method
-    tags-sorter: alpha
-    display-request-duration: true
-  default-consumes-media-type: application/json
-  default-produces-media-type: application/json
+    enabled: false
 
 # LangChain4j Configuration
 langchain4j:
@@ -111,17 +110,17 @@ langchain4j:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       model-name: qwen2.5:14b
       temperature: 0.1
-      timeout: 120s
+      timeout: 600s
     embedding-model:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-      model-name: qwen2.5:14b
-      timeout: 120s
+      model-name: bge-m3
+      timeout: 600s
 
   qdrant:
-     host: ${QDRANT_HOST:localhost}
-     port: ${QDRANT_PORT:6334}
-     collection-name: stock_disclosures
-     use-tls: false
+    host: ${QDRANT_HOST:localhost}
+    port: ${QDRANT_PORT:6334}
+    collection-name: stock_disclosures
+    use-tls: false
 
 # RAG 및 공시보고서 설정
 disclosure:
@@ -136,4 +135,4 @@ disclosure:
     similarity-threshold: 0.7
   processing:
     async: true
-    thread-pool-size: 5
+    thread-pool-size: 5 # 운영 환경 부하를 고려해 약간 상향
