@@ -8,4 +8,9 @@ public interface StockService {
     List<Stock> getStockList();
 
     Stock getStockById(long stockId);
+    
+    /**
+     * 종목 검색 (종목명, 종목 코드로 검색)
+     */
+    List<Stock> searchStocks(String query);
 }

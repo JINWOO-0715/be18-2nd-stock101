@@ -5,9 +5,12 @@ spring:
   # Database Configuration
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      connection-test-query: SELECT 1
+      connection-init-sql: SET NAMES utf8mb4
 
   # Redis Configuration
   data:
@@ -44,6 +47,7 @@ apikey:
   stock-key: ${STOCK_API_KEY}
   kis-key: ${KIS_API_KEY}
   kis-secret: ${KIS_API_SECRET}
+  dart-api-key: ${DART_API_KEY:#{null}}  # DART(전자공시) API 키
 
 # Server Configuration
 server:
@@ -76,14 +80,15 @@ management:
 # Logging Configuration
 logging:
   level:
-    root: INFO
-    com.monstersinc.stock101: DEBUG
-    org.springframework.security: DEBUG
-    org.springframework.web: DEBUG
-    org.mybatis: DEBUG
+    root: ERROR  # 운영 환경에서는 치명적인 오류만 로깅
+    com.monstersinc.stock101: ERROR
+    org.springframework.security: ERROR
+    org.springframework.web: ERROR
+    org.springframework.web.client: ERROR
+    org.mybatis: ERROR
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %maskedMsg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %maskedMsg%n"
 
 # Swagger/OpenAPI Configuration
 springdoc:

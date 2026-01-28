@@ -31,4 +31,14 @@ public class StockServiceImpl implements StockService {
         }
         return stock;
     }
+    
+    @Override
+    public List<Stock> searchStocks(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+        
+        List<Stock> stockList = stockMapper.selectStocksByKeyword(query.trim());
+        return stockList != null ? stockList : List.of();
+    }
 }

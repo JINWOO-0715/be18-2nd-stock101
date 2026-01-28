@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.monstersinc.stock101.dart.model.mapper.DartDisclosureMapper">
+
+    <!-- 공시정보 삽입 -->
+    <insert id="insertDisclosure" parameterType="com.monstersinc.stock101.dart.domain.DartDisclosureEntry">
+        INSERT INTO dart_disclosure_entry (rcept_no, corp_code, corp_name, report_nm, reception_date, created_at, report_type)
+        VALUES (#{rceptNo}, #{corpCode}, #{corpName}, #{reportNm}, #{receptionDate}, #{createdAt}, #{reportType})
+    </insert>
+
+    <!-- 공시정보 일괄 삽입 -->
+    <insert id="insertDisclosures" parameterType="java.util.List">
+        INSERT IGNORE INTO dart_disclosure_entry (rcept_no, corp_code, corp_name, report_nm, reception_date, created_at, report_type)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.rceptNo}, #{item.corpCode}, #{item.corpName}, #{item.reportNm}, #{item.receptionDate}, #{item.createdAt}, #{item.reportType})
+        </foreach>
+    </insert>
+
+    <!-- 회사 고유번호로 공시정보 삭제 -->
+    <delete id="deleteByCorpCode" parameterType="String">
+        DELETE FROM dart_disclosure_entry
+        WHERE corp_code = #{corpCode}
+    </delete>
+
+    <!-- 회사 고유번호로 공시정보 조회 -->
+    <select id="selectByCorpCode" parameterType="String" resultType="com.monstersinc.stock101.dart.domain.DartDisclosureEntry">
+        SELECT rcept_no as rceptNo, corp_code as corpCode, corp_name as corpName, 
+               report_nm as reportNm, reception_date as receptionDate, created_at as createdAt, report_type as reportType
+        FROM dart_disclosure_entry
+        WHERE corp_code = #{corpCode}
+        ORDER BY reception_date DESC
+    </select>
+
+    <!-- 모든 공시정보 조회 -->
+    <select id="selectAll" resultType="com.monstersinc.stock101.dart.domain.DartDisclosureEntry">
+        SELECT rcept_no as rceptNo, corp_code as corpCode, corp_name as corpName,
+               report_nm as reportNm, reception_date as receptionDate, created_at as createdAt, report_type as reportType
+        FROM dart_disclosure_entry
+        ORDER BY reception_date DESC
+    </select>
+
+</mapper>

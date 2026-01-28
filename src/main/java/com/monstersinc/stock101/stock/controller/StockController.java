@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -32,5 +33,14 @@ public class StockController {
     public ResponseEntity<BaseResponseDto<Stock>> getStockById(@PathVariable long stockId) {
         Stock stock = stockService.getStockById(stockId);
         return ResponseEntity.ok(new BaseResponseDto<Stock>(HttpStatus.OK, stock));
+    }
+    
+    /**
+     * 종목 검색 (종목명, 종목 코드로 검색)
+     */
+    @GetMapping("/search")
+    public ResponseEntity<ItemsResponseDto<Stock>> searchStocks(@RequestParam String query) {
+        List<Stock> stocks = stockService.searchStocks(query);
+        return ResponseEntity.ok(ItemsResponseDto.ofAll(HttpStatus.OK, stocks));
     }
 }

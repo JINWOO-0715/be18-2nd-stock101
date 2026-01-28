@@ -1,147 +1,145 @@
 package com.monstersinc.stock101.disclosure.service;
 
+import com.monstersinc.stock101.common.service.DocumentAsyncProcessor;
 import com.monstersinc.stock101.common.service.FileStorageService;
-import com.monstersinc.stock101.disclosure.domain.DisclosureDocument;
-import com.monstersinc.stock101.disclosure.dto.DisclosureAnalysisRequest;
-import com.monstersinc.stock101.disclosure.dto.DisclosureAnalysisResponse;
-import com.monstersinc.stock101.disclosure.repository.DisclosureRepository;
-import com.monstersinc.stock101.disclosure.util.TextChunker;
+import com.monstersinc.stock101.disclosure.domain.DisclosureSource;
+import com.monstersinc.stock101.disclosure.dto.DisclosureUploadResponse;
+import com.monstersinc.stock101.disclosure.repository.DisclosureSourceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.io.InputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.Optional;
 
 /**
- * 공시보고서 비즈니스 로직 서비스
+ * 공시보고서 소스 파일 비즈니스 로직 서비스
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DisclosureService {
 
-    private final DisclosureRepository disclosureRepository;
+    private final DisclosureSourceRepository sourceRepository;
     private final FileStorageService fileStorageService;
-    private final PdfProcessingService pdfProcessingService;
-    private final TextChunker textChunker;
-    private final EmbeddingService embeddingService;
-    private final RagService ragService;
+    private final DocumentAsyncProcessor asyncProcessor;
 
     /**
-     * 공시보고서 업로드 및 처리 시작
+     * 공시보고서 업로드
+     * @param file PDF 파일
+     * @return 업로드된 소스 파일 정보
      */
     @Transactional
-    public DisclosureDocument uploadDocument(MultipartFile file, Long stockId, Long userId) throws IOException {
-        // 1. 파일 저장
-        String filePath = fileStorageService.storeFile(file, stockId);
+    public DisclosureUploadResponse uploadDocument(MultipartFile file,  Long userID) throws IOException {
+        // 1. 파일 해시 계산 (중복 체크)
+        String fileHash = calculateFileHash(file);
 
-        // 2. 문서 엔티티 생성 및 저장
-        DisclosureDocument document = DisclosureDocument.builder()
-                .stockId(stockId)
-                .title(file.getOriginalFilename()) // 임시 제목
-                .documentType("UNKNOWN") // 사용자가 입력하게 하거나 추후 분석
+        // 2. 중복 체크
+        Optional<DisclosureSource> existing = sourceRepository.findByFileHash(fileHash);
+        if (existing.isPresent()) {
+            log.info("Duplicate file detected: hash={}, existing sourceId={}", fileHash, existing.get().getSourceId());
+            return DisclosureUploadResponse.builder()
+                    .sourceId(existing.get().getSourceId())
+                    .filePath(existing.get().getFilePath())
+                    .isDuplicate(true)
+                    .message("이미 업로드된 파일입니다.")
+                    .build();
+        }
+
+        // 3. 파일 저장 (S3 또는 로컬)
+        String filePath = fileStorageService.storeFile(file, userID);
+
+        // 4. 저장소 타입 결정 (설정에 따라)
+        DisclosureSource.StorageType storageType = determineStorageType();
+
+        // 5. 엔티티 생성 및 저장
+        DisclosureSource source = DisclosureSource.builder()
+                .userId(userID)
                 .filePath(filePath)
-                .fileName(file.getOriginalFilename())
+                .fileHash(fileHash)
                 .fileSize(file.getSize())
-                .uploadedBy(userId)
-                .processingStatus(DisclosureDocument.ProcessingStatus.UPLOADED)
+                .status("PENDING")
+                .storageType(storageType)
                 .build();
 
-        disclosureRepository.save(document);
+        sourceRepository.save(source);
 
-        // 3. 비동기 처리 시작
-        processDocumentAsync(document.getDocumentId(), filePath);
+        // DB 커밋이 완료된 후에 비동기 로직을 실행하도록 등록
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                // DB 커밋이 성공한 직후 이 로직이 실행됩니다.
+                asyncProcessor.processDocumentAsync(source.getSourceId(), filePath);
+            }
+        });
 
-        return document;
+        return DisclosureUploadResponse.builder()
+                .sourceId(source.getSourceId())
+                .filePath(filePath)
+                .fileSize(file.getSize())
+                .fileHash(fileHash)
+                .storageType(storageType.name())
+                .isDuplicate(false)
+                .message("업로드 성공")
+                .build();
+    }
+
+
+    /**
+     * ID로 소스 파일 조회
+     */
+    public DisclosureSource getSource(Long sourceId) {
+        return sourceRepository.findById(sourceId)
+                .orElseThrow(() -> new IllegalArgumentException("Source not found: " + sourceId));
     }
 
     /**
-     * 문서 처리 (텍스트 추출 -> 청킹 -> 임베딩)
+     * 소스 파일 삭제
      */
-    @Async
-    public void processDocumentAsync(Long documentId, String filePath) {
+    @Transactional
+    public void deleteSource(Long sourceId) throws IOException {
+        DisclosureSource source = getSource(sourceId);
+
+        // DB 삭제
+        sourceRepository.deleteById(sourceId);
+
+        // 파일 삭제
+        fileStorageService.deleteFile(source.getFilePath());
+        
+        log.info("Deleted disclosure source: sourceId={}", sourceId);
+    }
+
+    /**
+     * 파일 SHA-256 해시 계산
+     */
+    private String calculateFileHash(MultipartFile file) throws IOException {
         try {
-            // 상태 업데이트: PROCESSING
-            disclosureRepository.updateStatus(documentId, DisclosureDocument.ProcessingStatus.PROCESSING, null);
-
-            // 1. PDF 텍스트 추출 (페이지별)
-            Map<Integer, String> pageTexts = pdfProcessingService.extractTextByPage(filePath);
-
-            // 메타데이터 업데이트 (페이지 수 등)
-            Map<String, String> metadata = pdfProcessingService.extractMetadata(filePath);
-            String title = metadata.getOrDefault("title", "Untitled");
-
-            // 2. 텍스트 청킹
-            List<TextChunker.TextChunk> chunks = textChunker.chunkTextByPages(pageTexts);
-
-            // 3. 임베딩 생성 및 저장
-            embeddingService.embedAndSaveChunks(documentId, chunks);
-
-            // 4. 상태 업데이트: COMPLETED
-            disclosureRepository.updateMetadata(documentId,
-                    pdfProcessingService.getPageCount(filePath),
-                    chunks.size(),
-                    convertMapToJson(metadata)); // JSON 변환 필요
-
-            log.info("Document {} processed successfully with {} chunks", documentId, chunks.size());
-
-        } catch (Exception e) {
-            log.error("Error processing document {}", documentId, e);
-            disclosureRepository.updateStatus(documentId, DisclosureDocument.ProcessingStatus.FAILED, e.getMessage());
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream is = file.getInputStream()) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = is.read(buffer)) > 0) {
+                    digest.update(buffer, 0, read);
+                }
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not available", e);
         }
     }
 
     /**
-     * 문서 분석 요청
+     * 저장소 타입 결정 (설정 기반)
      */
-    public DisclosureAnalysisResponse analyzeDocument(Long stockId, DisclosureAnalysisRequest request) {
-        // 간단한 검증: 해당 종목에 문서가 있는지 확인 등
-        // 여기서는 바로 RAG 서비스 호출
-        return ragService.analyzeDocument(stockId, request);
-    }
-
-    /**
-     * 종목별 문서 목록 조회
-     */
-    public List<DisclosureDocument> getDocumentsByStockId(Long stockId) {
-        return disclosureRepository.findByStockId(stockId);
-    }
-
-    /**
-     * 문서 상세 조회
-     */
-    public DisclosureDocument getDocument(Long documentId) {
-        return disclosureRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
-    }
-
-    /**
-     * 문서 삭제
-     */
-    @Transactional
-    public void deleteDocument(Long documentId) throws IOException {
-        DisclosureDocument document = getDocument(documentId);
-
-        // DB 삭제 (Cascade 설정에 의해 청크도 삭제됨 - MyBatis에서는 별도 처리 필요할 수 있음)
-        // 여기서는 명시적으로 청크 리포지토리 호출 로직이 필요할 수 있으나, DB ON DELETE CASCADE가 있다면 생략 가능
-        // 하지만 서비스 레이어에서 처리하는 것이 안전함. (DocumentChunkRepository.deleteByDocumentId 호출 필요할
-        // 수 있음)
-        disclosureRepository.deleteById(documentId);
-
-        // 파일 삭제
-        fileStorageService.deleteFile(document.getFilePath());
-    }
-
-    // 헬퍼 메서드: Map -> JSON String (간단 구현)
-    private String convertMapToJson(Map<String, String> map) {
-        return map.entrySet().stream()
-                .map(e -> String.format("\"%s\":\"%s\"", e.getKey(), e.getValue()))
-                .collect(Collectors.joining(",", "{", "}"));
+    private DisclosureSource.StorageType determineStorageType() {
+        return DisclosureSource.StorageType.LOCAL;
     }
 }

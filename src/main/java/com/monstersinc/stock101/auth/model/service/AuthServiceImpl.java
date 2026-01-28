@@ -78,6 +78,7 @@ public class AuthServiceImpl implements AuthService {
                 .roles(rolesList)
                 .tierCode(user.getTierCode())
                 .userName(user.getUsername())
+                .imageURL(user.getImageUrl())
                 .statusMessage(user.getStatusMessage())
                 .build();
     }

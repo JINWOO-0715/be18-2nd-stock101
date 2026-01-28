@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.monstersinc.stock101.disclosure.repository.AIDisclosureReportRepository">
+
+    <insert id="insertAiReport" parameterType="map">
+        INSERT INTO ai_disclosure_report (source_id, summary_content, created_at)
+        VALUES (#{source_id}, #{summary_content}, NOW())
+    </insert>
+
+    <select id="countBySourceId" resultType="int">
+        SELECT COUNT(*)
+        FROM ai_disclosure_report
+        WHERE source_id = #{sourceId}
+    </select>
+
+</mapper>

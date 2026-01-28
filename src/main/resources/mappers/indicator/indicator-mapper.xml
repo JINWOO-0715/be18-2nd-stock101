@@ -114,6 +114,8 @@
             BPS,
             ROE,
             ROA,
+            PER,
+            PBR,
             quarter,
             stock_id
         FROM financial_indicators
@@ -126,6 +128,8 @@
         <result property="bps"         column="BPS"/>
         <result property="roe"         column="ROE"/>
         <result property="roa"         column="ROA"/>
+        <result property="per"         column="PER"/>
+        <result property="pbr"         column="PBR"/>
         <result property="quarter"     column="quarter"/>
         <result property="stockId"     column="stock_id"/>
     </resultMap>

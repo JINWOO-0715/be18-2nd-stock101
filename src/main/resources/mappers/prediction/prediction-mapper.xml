@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.monstersinc.stock101.prediction.model.mapper.PredictionMapper">
-    <resultMap id="predictionResultMap" type="Prediction">
+    <resultMap id="predictionResultMap" type="com.monstersinc.stock101.prediction.model.vo.Prediction">
         <id     property="predictionId" column="prediction_id"/>
         <result property="userId"       column="user_id"/>
         <result property="stockId"      column="stock_id"/>

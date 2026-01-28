@@ -21,10 +21,17 @@ public class JwtUtil {
     private final SecretKey secretKey;
 
     public JwtUtil(JwtProperties jwtProperties) {
-
         this.issuer = jwtProperties.getIssuer();
+        String secret = jwtProperties.getSecret();
+        
+        if (secret == null) {
+            log.warn("JWT Secret is null during JwtUtil initialization. This might cause issues downstream if not set via System Properties later.");
+            this.secretKey = null; // Or handle as appropriate
+            return;
+        }
+
         this.secretKey = new SecretKeySpec(
-                jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8),
+                secret.getBytes(StandardCharsets.UTF_8),
                 Jwts.SIG.HS256.key().build().getAlgorithm()
         );
     }

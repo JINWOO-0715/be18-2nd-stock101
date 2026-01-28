@@ -27,9 +27,14 @@ public class FinancialIndicator {
     /** 총 자산 이익률 */
     private Double roa;
 
+    /** 주가수익비율 */
+    private Double per;
+
+    /** 주가순자산비율 */
+    private Double pbr;
+
     /** 분기 */
     private Integer quarter;
-
 
     /** 종목 ID (FK -> stocks.stock_id) */
     private Long stockId;

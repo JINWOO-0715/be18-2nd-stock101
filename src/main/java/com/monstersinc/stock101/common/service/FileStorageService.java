@@ -24,18 +24,18 @@ public class FileStorageService {
     private final DisclosureProperties disclosureProperties;
 
     /**
-     * 파일 저장
+     * 파일 저장 (DART 접수번호 기준)
      * 
      * @param file    업로드된 파일
-     * @param stockId 종목 ID
+     * @param userId  사용자 ID
      * @return 저장된 파일 경로
      */
-    public String storeFile(MultipartFile file, Long stockId) throws IOException {
+    public String storeFile(MultipartFile file, Long userId) throws IOException {
         // 파일 검증
         validateFile(file);
 
         // 저장 디렉토리 생성
-        Path uploadPath = Paths.get(disclosureProperties.getUploadDir(), stockId.toString());
+        Path uploadPath = Paths.get(disclosureProperties.getUploadDir(), String.valueOf(userId));
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
@@ -49,7 +49,6 @@ public class FileStorageService {
         Path targetPath = uploadPath.resolve(uniqueFilename);
         Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-        log.info("File stored successfully: {}", targetPath);
         return targetPath.toString();
     }
 

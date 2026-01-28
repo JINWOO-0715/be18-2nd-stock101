@@ -5,16 +5,19 @@ spring:
   # Database Configuration
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      connection-test-query: SELECT 1
+      connection-init-sql: SET NAMES utf8mb4
 
   # Redis Configuration
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:}  # 비밀번호 없으면 빈 문자열
       lettuce:
         pool:
           max-active: 10
@@ -22,6 +25,13 @@ spring:
           min-idle: 2
       timeout: 60000ms
 
+  # File Upload Configuration
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 50MB
+      file-size-threshold: 2MB
 
 # MyBatis Configuration
 mybatis:
@@ -41,9 +51,9 @@ jwt:
 
 # External API Keys
 apikey:
-  stock-key: ${STOCK_API_KEY}
   kis-key: ${KIS_API_KEY}
   kis-secret: ${KIS_API_SECRET}
+  dart-api-key: ${DART_API_KEY:#{null}}  # DART(전자공시) API 키
 
 # Server Configuration
 server:
@@ -70,8 +80,9 @@ logging:
   level:
     root: INFO
     com.monstersinc.stock101: DEBUG
-    org.springframework.security: DEBUG
-    org.springframework.web: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: INFO
+    org.springframework.web.client: WARN  # RestTemplate 요청/응답 로깅 비활성화 (민감 정보 노출 방지)
     org.mybatis: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
@@ -91,15 +102,6 @@ springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
 
-# File Upload Configuration
-spring:
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: 50MB
-      max-request-size: 50MB
-      file-size-threshold: 2MB
-
 # LangChain4j Configuration
 langchain4j:
   ollama:
@@ -107,30 +109,29 @@ langchain4j:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       model-name: qwen2.5:14b
       temperature: 0.1
-      timeout: 120s
+      timeout: 1200s
     embedding-model:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-      model-name: qwen2.5:14b
-      timeout: 120s
+      model-name: bge-m3
+      timeout: 600s
 
   qdrant:
-     host: ${QDRANT_HOST:localhost}
-     port: ${QDRANT_PORT:6334}  # GRPC port
-     collection-name: stock_disclosures
-     use-tls: false
-
+    host: ${QDRANT_HOST:localhost}
+    port: ${QDRANT_PORT:6334}
+    collection-name: stock_disclosures
+    use-tls: false
 
 # RAG 및 공시보고서 설정
 disclosure:
   upload-dir: ${DISCLOSURE_UPLOAD_DIR:./uploads/disclosures}
   allowed-extensions: pdf
-  max-file-size: 52428800  # 50MB in bytes
+  max-file-size: 52428800
   chunk:
-    size: 500  # 토큰 수
-    overlap: 100  # 오버랩 토큰 수
+    size: 500
+    overlap: 100
   retrieval:
-    top-k: 10  # 검색할 상위 청크 수
-    similarity-threshold: 0.7  # 유사도 임계값
+    top-k: 10
+    similarity-threshold: 0.7
   processing:
-    async: true  # 비동기 처리 여부
+    async: true
     thread-pool-size: 5

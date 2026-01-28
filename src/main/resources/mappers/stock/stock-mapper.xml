@@ -6,35 +6,65 @@
         SELECT
             s.stock_id,
             s.name,
+            s.is_delisted,
             s.stock_code,
-            s.individual_indicator,
-            s.analyst_indicator,
-            s.news_indicator,
-            s.price,
-            s.fluctuation,
+            s.corp_code,
+            s.std_code,
+            s.market_type,
+            s.security_type,
+            s.large_industry_code,
+            s.medium_industry_code,
+            s.small_industry_code,
             s.industry_code,
-            ind.name as industry_name,
-            s.sector_code,
-            sec.name as sector_name
+            s.sector_name,
+            s.face_value,
+            s.listing_date,
+            s.capital_amount,
+            s.ipo_price,
+            s.preferred_stock_code,
+            s.is_managed,
+            s.is_suspended,
+            s.sales_amount,
+            s.operating_profit,
+            s.net_income,
+            s.roe,
+            s.base_date,
+            s.market_cap,
+            s.price,
+            s.fluctuation
         FROM stocks s
-        INNER JOIN sectors sec ON s.sector_code = sec.sector_code
-        INNER JOIN industries ind ON s.industry_code = ind.industry_code
     </sql>
 
     <!-- ResultMap 매핑 -->
     <resultMap id="stockResultMap" type="Stock">
         <id property="stockId" column="stock_id"/>
         <result property="name" column="name"/>
+        <result property="isDelisted" column="is_delisted"/>
         <result property="stockCode" column="stock_code"/>
-        <result property="individualIndicator" column="individual_indicator"/>
-        <result property="analystIndicator" column="analyst_indicator"/>
-        <result property="newsIndicator" column="news_indicator"/>
+        <result property="corpCode" column="corp_code"/>
+        <result property="stdCode" column="std_code"/>
+        <result property="marketType" column="market_type"/>
+        <result property="securityType" column="security_type"/>
+        <result property="largeIndustryCode" column="large_industry_code"/>
+        <result property="mediumIndustryCode" column="medium_industry_code"/>
+        <result property="smallIndustryCode" column="small_industry_code"/>
+        <result property="industryCode" column="industry_code"/>
+        <result property="sectorName" column="sector_name"/>
+        <result property="faceValue" column="face_value"/>
+        <result property="listingDate" column="listing_date"/>
+        <result property="capitalAmount" column="capital_amount"/>
+        <result property="ipoPrice" column="ipo_price"/>
+        <result property="preferredStockCode" column="preferred_stock_code"/>
+        <result property="isManaged" column="is_managed"/>
+        <result property="isSuspended" column="is_suspended"/>
+        <result property="salesAmount" column="sales_amount"/>
+        <result property="operatingProfit" column="operating_profit"/>
+        <result property="netIncome" column="net_income"/>
+        <result property="roe" column="roe"/>
+        <result property="baseDate" column="base_date"/>
+        <result property="marketCap" column="market_cap"/>
         <result property="price" column="price"/>
         <result property="fluctuation" column="fluctuation"/>
-        <result property="industryCode" column="industry_code"/>
-        <result property="industryName" column="industry_name"/>
-        <result property="sectorCode" column="sector_code"/>
-        <result property="sectorName" column="sector_name"/>
     </resultMap>
 
     <!-- 전체 조회 -->
@@ -47,4 +77,113 @@
         <include refid="selectStockSql"/>
         WHERE s.stock_id = #{stockId}
     </select>
+    
+    <!-- 키워드 검색 (종목명, 종목 코드) -->
+    <select id="selectStocksByKeyword" parameterType="string" resultMap="stockResultMap">
+        <include refid="selectStockSql"/>
+        WHERE s.name LIKE CONCAT('%', #{keyword}, '%')
+           OR s.stock_code LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY 
+            CASE 
+                WHEN s.name LIKE CONCAT(#{keyword}, '%') THEN 1
+                WHEN s.stock_code LIKE CONCAT(#{keyword}, '%') THEN 2
+                ELSE 3
+            END,
+            LENGTH(s.name)
+        LIMIT 20
+    </select>
+    
+    <!-- 종목 코드로 조회 -->
+    <select id="selectStockByCode" parameterType="string" resultMap="stockResultMap">
+        <include refid="selectStockSql"/>
+        WHERE s.stock_code = #{stockCode}
+    </select>
+    
+    <!-- 종목 기본 정보 업데이트 (MST에서 가져온 정보로 업데이트) -->
+    <update id="updateStockBasicInfo" parameterType="Stock">
+        UPDATE stocks
+        SET name = #{name},
+            is_delisted = #{isDelisted},
+            std_code = #{stdCode},
+            corp_code = #{corpCode},
+            market_type = #{marketType},
+            security_type = #{securityType},
+            large_industry_code = #{largeIndustryCode},
+            medium_industry_code = #{mediumIndustryCode},
+            small_industry_code = #{smallIndustryCode},
+            industry_code = #{industryCode},
+            face_value = #{faceValue},
+            listing_date = #{listingDate},
+            capital_amount = #{capitalAmount},
+            ipo_price = #{ipoPrice},
+            preferred_stock_code = #{preferredStockCode},
+            is_managed = #{isManaged},
+            is_suspended = #{isSuspended},
+            sales_amount = #{salesAmount},
+            operating_profit = #{operatingProfit},
+            net_income = #{netIncome},
+            roe = #{roe},
+            base_date = #{baseDate},
+            market_cap = #{marketCap}
+        WHERE stock_id = #{stockId}
+    </update>
+    
+    <!-- 신규 종목 삽입 -->
+    <insert id="insertStock" parameterType="Stock" useGeneratedKeys="true" keyProperty="stockId">
+        INSERT INTO stocks (
+            name, 
+            is_delisted,
+            stock_code,
+            corp_code,
+            std_code,
+            market_type,
+            security_type,
+            large_industry_code,
+            medium_industry_code,
+            small_industry_code,
+            industry_code,
+            face_value,
+            listing_date,
+            capital_amount,
+            ipo_price,
+            preferred_stock_code,
+            is_managed,
+            is_suspended,
+            sales_amount,
+            operating_profit,
+            net_income,
+            roe,
+            base_date,
+            market_cap,
+            price,
+            fluctuation
+        ) VALUES (
+            #{name}, 
+            #{isDelisted},
+            #{stockCode},
+            #{corpCode},
+            #{stdCode},
+            #{marketType},
+            #{securityType},
+            #{largeIndustryCode},
+            #{mediumIndustryCode},
+            #{smallIndustryCode},
+            #{industryCode},
+            #{faceValue},
+            #{listingDate},
+            #{capitalAmount},
+            #{ipoPrice},
+            #{preferredStockCode},
+            #{isManaged},
+            #{isSuspended},
+            #{salesAmount},
+            #{operatingProfit},
+            #{netIncome},
+            #{roe},
+            #{baseDate},
+            #{marketCap},
+            #{price},
+            #{fluctuation}
+        )
+    </insert>
 </mapper>

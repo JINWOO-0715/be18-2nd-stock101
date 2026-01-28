@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.monstersinc.stock101.stock.model.mapper.StockPriceRepository">
+
+    <!-- 단건 저장 -->
+    <insert id="insertPrice" parameterType="com.monstersinc.stock101.stock.model.vo.StockPrice"
+            useGeneratedKeys="true" keyProperty="id" keyColumn="stock_price_pk">
+        INSERT INTO stock_prices (stock_id, datetime, stck_oprc, stck_hgpr, stck_lwpr, stck_clpr, acml_vol, acml_tr_pbmn)
+        VALUES (#{stockId}, #{datetime}, #{stckOprc}, #{stckHgpr}, #{stckLwpr}, #{stckClpr}, #{acmlVol}, #{acmlTrPbmn})
+    </insert>
+
+    <!-- 일괄 저장 (Bulk Insert) -->
+    <insert id="insertPrices" parameterType="java.util.List">
+        INSERT INTO stock_prices (
+            stock_id, datetime, stck_oprc, stck_hgpr, stck_lwpr, stck_clpr, acml_vol, acml_tr_pbmn
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.stockId}, #{item.datetime}, #{item.stckOprc}, #{item.stckHgpr}, #{item.stckLwpr}, #{item.stckClpr}, #{item.acmlVol}, #{item.acmlTrPbmn})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            stck_oprc = VALUES(stck_oprc),
+            stck_hgpr = VALUES(stck_hgpr),
+            stck_lwpr = VALUES(stck_lwpr),
+            stck_clpr = VALUES(stck_clpr),
+            acml_vol = VALUES(acml_vol),
+            acml_tr_pbmn = VALUES(acml_tr_pbmn)
+    </insert>
+
+    <!-- 종목과 날짜로 시세 정보 조회 -->
+    <select id="findByStockIdAndDatetime" parameterType="map" resultType="com.monstersinc.stock101.stock.model.vo.StockPrice">
+        SELECT stock_id as stockId, datetime, stck_oprc as stckOprc, stck_hgpr as stckHgpr,
+               stck_lwpr as stckLwpr, stck_clpr as stckClpr, acml_vol as acmlVol, acml_tr_pbmn as acmlTrPbmn
+        FROM stock_prices
+        WHERE stock_id = #{stockId} AND datetime = #{datetime}
+    </select>
+
+    <!-- 종목의 최근 시세 조회 -->
+    <select id="findByStockIdOrderByDatetimeDesc" parameterType="Long" resultType="com.monstersinc.stock101.stock.model.vo.StockPrice">
+        SELECT stock_id as stockId, datetime, stck_oprc as stckOprc, stck_hgpr as stckHgpr,
+               stck_lwpr as stckLwpr, stck_clpr as stckClpr, acml_vol as acmlVol, acml_tr_pbmn as acmlTrPbmn
+        FROM stock_prices
+        WHERE stock_id = #{stockId}
+        ORDER BY datetime DESC
+    </select>
+
+    <!-- 종목의 기간별 시세 조회 -->
+    <select id="findByStockIdAndDatetimeBetweenOrderByDatetimeAsc" parameterType="map" resultType="com.monstersinc.stock101.stock.model.vo.StockPrice">
+        SELECT stock_id as stockId, datetime, stck_oprc as stckOprc, stck_hgpr as stckHgpr,
+               stck_lwpr as stckLwpr, stck_clpr as stckClpr, acml_vol as acmlVol, acml_tr_pbmn as acmlTrPbmn
+        FROM stock_prices
+        WHERE stock_id = #{stockId} AND datetime BETWEEN #{startDate} AND #{endDate}
+        ORDER BY datetime ASC
+    </select>
+
+    <!-- 최근 N개 시세 조회 -->
+    <select id="findRecentPrices" parameterType="map" resultType="com.monstersinc.stock101.stock.model.vo.StockPrice">
+        SELECT stock_id as stockId, datetime, stck_oprc as stckOprc, stck_hgpr as stckHgpr,
+               stck_lwpr as stckLwpr, stck_clpr as stckClpr, acml_vol as acmlVol, acml_tr_pbmn as acmlTrPbmn
+        FROM stock_prices
+        WHERE stock_id = #{stockId}
+        ORDER BY datetime DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 특정 날짜 이후의 시세 데이터 개수 -->
+    <select id="countByStockIdAndDatetimeAfter" parameterType="map" resultType="long">
+        SELECT COUNT(*)
+        FROM stock_prices
+        WHERE stock_id = #{stockId} AND datetime > #{datetime}
+    </select>
+
+    <!-- 종목의 가장 최근 날짜 조회 -->
+    <select id="findLatestDateByStockId" parameterType="Long" resultType="java.time.LocalDate">
+        SELECT MAX(datetime)
+        FROM stock_prices
+        WHERE stock_id = #{stockId}
+    </select>
+
+</mapper>
