@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.monstersinc.stock101.kis.model.mapper.ApiTokenMapper">
+
+    <resultMap id="apiTokenResultMap" type="com.monstersinc.stock101.kis.model.vo.ApiToken">
+        <id property="apiName" column="api_name"/>
+        <result property="accessToken" column="access_token"/>
+        <result property="tokenType" column="token_type"/>
+        <result property="issuedAt" column="issued_at"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    <select id="selectByApiName" parameterType="string" resultMap="apiTokenResultMap">
+        SELECT api_name, access_token, token_type, issued_at, expires_at, updated_at
+        FROM api_tokens
+        WHERE api_name = #{apiName}
+    </select>
+
+    <insert id="upsertToken" parameterType="com.monstersinc.stock101.kis.model.vo.ApiToken">
+        INSERT INTO api_tokens (
+            api_name, access_token, token_type, issued_at, expires_at, updated_at
+        ) VALUES (
+                     #{apiName}, #{accessToken}, #{tokenType}, #{issuedAt}, #{expiresAt}, NOW()
+                 )
+            ON DUPLICATE KEY UPDATE
+                                 access_token = VALUES(access_token),
+                                 token_type = VALUES(token_type),
+                                 issued_at = VALUES(issued_at),
+                                 expires_at = VALUES(expires_at),
+                                 updated_at = NOW()
+    </insert>
+
+    <delete id="deleteByApiName" parameterType="string">
+        DELETE FROM api_tokens
+        WHERE api_name = #{apiName}
+    </delete>
+
+</mapper>

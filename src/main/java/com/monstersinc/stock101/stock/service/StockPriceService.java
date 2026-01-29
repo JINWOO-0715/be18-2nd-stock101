@@ -113,11 +113,8 @@ public class StockPriceService {
             if (savedCount > 0) {
                 redisTemplate.opsForValue().set(redisKey, today.format(DATE_FORMAT), 1, TimeUnit.DAYS);
                 log.info("✅ 종목 {} 업데이트 완료, Redis 캐시 갱신", stockCode);
-            } else {
-                log.warn("종목 {} 업데이트 데이터 없음 (휴장일 또는 API 오류)", stockCode);
-                // 반복 호출 방지 (짧은 TTL)
-                redisTemplate.opsForValue().set(redisKey, today.format(DATE_FORMAT), 1, TimeUnit.HOURS);
             }
+
         } catch (Exception e) {
             log.error("종목 {} 업데이트 실패: {}", stockCode, e.getMessage());
             // 업데이트 실패해도 기존 데이터는 조회 가능하게 함
