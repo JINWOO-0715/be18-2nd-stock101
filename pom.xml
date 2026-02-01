@@ -81,12 +81,17 @@
             <version>0.12.7</version>
         </dependency>
 
-        <!-- Source: https://mvnrepository.com/artifact/technology.tabula/tabula -->
         <dependency>
             <groupId>technology.tabula</groupId>
             <artifactId>tabula</artifactId>
             <version>1.0.5</version>
             <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
