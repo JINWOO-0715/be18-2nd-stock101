@@ -25,6 +25,11 @@ public class DisclosureSource {
     private Long userId;
 
     /**
+     * 주식 ID (외래키)
+     */
+    private String stockId;
+
+    /**
      * DART 접수번호 (외래키)
      */
     private String rceptNo;

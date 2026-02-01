@@ -24,6 +24,7 @@ public class JwtCookieServiceImpl implements JwtCookieService {
         return ResponseCookie
                 .from("refresh_token",refreshToken)
                 .httpOnly(true)
+                .sameSite("Lax")
                 .path("/")
                 .maxAge(duration)
                 .build();

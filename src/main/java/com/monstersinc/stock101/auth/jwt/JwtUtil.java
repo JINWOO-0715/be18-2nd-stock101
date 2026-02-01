@@ -12,6 +12,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -54,6 +55,11 @@ public class JwtUtil {
     // 클래임에서 username을 추출하는 메소드
     public String getUserId(String token) {
         return String.valueOf(getClaims(token).get("userId", Long.class));
+    }
+
+    // 클래임에서 roles를 추출하는 메소드
+    public List<String> getRoles(String token) {
+        return getClaims(token).get("roles", List.class);
     }
 
     // 클래임에서 토큰 타입(Token Type)을 추출하는 메소드

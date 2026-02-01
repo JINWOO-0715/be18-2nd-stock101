@@ -80,8 +80,8 @@ logging:
   level:
     root: INFO
     com.monstersinc.stock101: DEBUG
-    org.springframework.security: INFO
-    org.springframework.web: INFO
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
     org.springframework.web.client: WARN  # RestTemplate 요청/응답 로깅 비활성화 (민감 정보 노출 방지)
     org.mybatis: DEBUG
   pattern:

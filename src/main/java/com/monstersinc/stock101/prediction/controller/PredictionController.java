@@ -8,7 +8,6 @@ import com.monstersinc.stock101.exception.message.GlobalExceptionMessage;
 import com.monstersinc.stock101.prediction.model.dto.PredictionRequestDto;
 import com.monstersinc.stock101.prediction.model.service.PredictionService;
 import com.monstersinc.stock101.prediction.model.vo.Prediction;
-import com.monstersinc.stock101.user.model.vo.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -32,10 +31,9 @@ public class PredictionController {
 
     @PostMapping("/create")
     public ResponseEntity<BaseResponseDto<Prediction>> create(
-            @AuthenticationPrincipal User authenticationUser,
+            @AuthenticationPrincipal Long userId,
             @Valid @RequestBody PredictionRequestDto dto
     ) {
-        long userId = authenticationUser.getUserId();
         Prediction prediction = dto.toPrediction(userId);
 
         // 중복 예측 방지: 같은 종목(stockId)에 대해 미채점(result IS NULL) 예측이 존재하면 차단
@@ -55,9 +53,8 @@ public class PredictionController {
 
     @GetMapping("/user/me")
     public ResponseEntity<ItemsResponseDto<Prediction>> getByUserId(
-            @AuthenticationPrincipal User authenticationUser
+            @AuthenticationPrincipal Long userId
     ) {
-        long userId = authenticationUser.getUserId();
         List<Prediction> predictions = predictionService.selectByUserId(userId);
 
         return ResponseEntity.status(HttpStatus.OK)

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.monstersinc.stock101.notification.model.mapper.NotificationMapper">
+
+    <resultMap id="notificationResultMap" type="com.monstersinc.stock101.notification.model.dto.NotificationDto">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="documentId" column="document_id"/>
+        <result property="message" column="message"/>
+        <result property="isRead" column="is_read"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- 알림 생성 -->
+    <insert id="insertNotification" parameterType="com.monstersinc.stock101.notification.model.dto.NotificationDto"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO notifications (user_id, document_id, message, is_read, created_at)
+        VALUES (
+            #{userId},
+            #{documentId},
+            #{message},
+            #{isRead},
+            CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <!-- 사용자별 알림 목록 조회 -->
+    <select id="findByUserId" parameterType="Long" resultMap="notificationResultMap">
+        SELECT id, user_id, document_id, message, is_read, created_at
+        FROM notifications
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 사용자별 미읽음 알림 목록 조회 -->
+    <select id="findUnreadByUserId" parameterType="Long" resultMap="notificationResultMap">
+        SELECT id, user_id, document_id, message, is_read, created_at
+        FROM notifications
+        WHERE user_id = #{userId} AND is_read = 0
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 알림 ID로 조회 -->
+    <select id="findById" parameterType="Long" resultMap="notificationResultMap">
+        SELECT id, user_id, document_id, message, is_read, created_at
+        FROM notifications
+        WHERE id = #{id}
+    </select>
+
+    <!-- 알림 읽음 처리 -->
+    <update id="markAsRead" parameterType="Long">
+        UPDATE notifications
+        SET is_read = 1
+        WHERE id = #{id}
+    </update>
+
+    <!-- 사용자의 모든 알림 읽음 처리 -->
+    <update id="markAllAsReadByUserId" parameterType="Long">
+        UPDATE notifications
+        SET is_read = 1
+        WHERE user_id = #{userId} AND is_read = 0
+    </update>
+
+    <!-- 사용자의 미읽음 알림 개수 조회 -->
+    <select id="countUnreadByUserId" parameterType="Long" resultType="int">
+        SELECT COUNT(*)
+        FROM notifications
+        WHERE user_id = #{userId} AND is_read = 0
+    </select>
+
+    <!-- 알림 삭제 -->
+    <delete id="deleteById" parameterType="Long">
+        DELETE FROM notifications
+        WHERE id = #{id}
+    </delete>
+
+</mapper>

@@ -128,6 +128,10 @@ public class StockMstDownloadService {
                         } else {
                             // 기존 종목 업데이트 (stockId 유지)
                             stock.setStockId(existingStock.getStockId());
+
+                            // DART corpCode 보존 (MST에는 없는 정보이므로 기존 값 유지)
+                            stock.setCorpCode(existingStock.getCorpCode());
+
                             stockMapper.updateStockBasicInfo(stock);
                         }
                         updatedCount++;
@@ -152,7 +156,7 @@ public class StockMstDownloadService {
         stock.setStockCode(trimToNull(dto.getMkscShrnIscd()));
         stock.setStdCode(trimToNull(dto.getStndIscd()));
         stock.setName(trimToNull(dto.getHtsKorIsnm()));
-        stock.setCorpCode(null); // MST에는 DART 고유번호 없음
+        stock.setCorpCode(null); // MST에는 DART 고유번호 없음 (업데이트 시 기존 값으로 덮어쓰기 필요)
         stock.setMarketType(parseMarketType(dto.getKospiIssuYn()));
         stock.setSecurityType(trimToNull(dto.getScrtGrpClsCode()));
 

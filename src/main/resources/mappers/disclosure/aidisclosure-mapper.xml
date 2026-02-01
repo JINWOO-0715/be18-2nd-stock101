@@ -3,15 +3,69 @@
 
 <mapper namespace="com.monstersinc.stock101.disclosure.repository.AIDisclosureReportRepository">
 
+    <resultMap id="AIDisclosureReportMap" type="com.monstersinc.stock101.disclosure.domain.AIDisclosureReport">
+        <id property="reportId" column="report_id"/>
+        <result property="sourceId" column="source_id"/>
+        <result property="stockId" column="stock_id"/>
+        <result property="title" column="title"/>
+        <result property="summaryContent" column="summary_content"/>
+        <result property="prospectContent" column="prospect_content"/>
+        <result property="metricsData" column="metrics_data"/>
+        <result property="keyPoints" column="key_points"/>
+        <result property="sentimentScore" column="sentiment_score"/>
+        <result property="investmentGrade" column="investment_grade"/>
+        <result property="content" column="content"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
     <insert id="insertAiReport" parameterType="map">
-        INSERT INTO ai_disclosure_report (source_id, summary_content, created_at)
-        VALUES (#{source_id}, #{summary_content}, NOW())
+        INSERT INTO ai_disclosure_report (
+            source_id,
+            stock_id,
+            title,
+            summary_content,
+            prospect_content,
+            metrics_data,
+            key_points,
+            sentiment_score,
+            investment_grade,
+            content,
+            created_at
+        )
+        VALUES (
+            #{source_id},
+            #{stock_id},
+            #{title},
+            #{summary_content},
+            #{prospect_content},
+            #{metrics_data},
+            #{key_points},
+            #{sentiment_score},
+            #{investment_grade},
+            #{content},
+            NOW()
+        )
     </insert>
 
     <select id="countBySourceId" resultType="int">
         SELECT COUNT(*)
         FROM ai_disclosure_report
         WHERE source_id = #{sourceId}
+    </select>
+
+    <!-- stock_id로 AI 리포트 목록 조회 -->
+    <select id="findByStockId" resultMap="AIDisclosureReportMap">
+        SELECT *
+        FROM ai_disclosure_report
+        WHERE stock_id = #{stockId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- report_id로 AI 리포트 단건 조회 -->
+    <select id="findById" resultMap="AIDisclosureReportMap">
+        SELECT *
+        FROM ai_disclosure_report
+        WHERE report_id = #{reportId}
     </select>
 
 </mapper>

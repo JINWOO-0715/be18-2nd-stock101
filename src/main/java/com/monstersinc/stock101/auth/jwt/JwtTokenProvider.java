@@ -4,13 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -20,7 +21,6 @@ public class JwtTokenProvider {
     private static final long ACCESS_TOKEN_EXPIRATION = 1000L * 60L * 30; // 30분
     private static final long REFRESH_TOKEN_EXPIRATION = 1000L * 60L * 60L * 24L; // 1일
     private final RedisTemplate<String, String> redisTemplate;
-    private final UserDetailsService userDetailsService;
 
     public String createAccessToken(Long userId, List<String> roles) {
         Map<String, Object> claims = Map.of("userId", userId, "roles",roles,"token_type", "access");
@@ -64,10 +64,14 @@ public class JwtTokenProvider {
     }
 
     public Authentication createAuthentication(String accessToken) {
-        String userId = jwtUtil.getUserId(accessToken);
-        UserDetails userDetails= userDetailsService.loadUserByUsername(userId);
+        Long userId = Long.parseLong(jwtUtil.getUserId(accessToken));
+        List<String> roles = jwtUtil.getRoles(accessToken);
 
-        return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        List<GrantedAuthority> authorities = roles.stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
+
+        return new UsernamePasswordAuthenticationToken(userId, null, authorities);
     }
 
     private boolean isAccessToken(String accessToken) {

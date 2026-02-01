@@ -40,8 +40,8 @@ public class UserController {
 
 
     @GetMapping("/me")
-    public ResponseEntity<BaseResponseDto<User>> getMe(@AuthenticationPrincipal User authenticationUser) {
-        User user = userService.getUserByEmail(authenticationUser.getEmail());
+    public ResponseEntity<BaseResponseDto<User>> getMe(@AuthenticationPrincipal Long userId) {
+        User user = userService.getUserByUserId(userId);
 
         // user 정보를 리턴한다.
         return ResponseEntity.ok(new BaseResponseDto<>(HttpStatus.OK, user));
@@ -74,20 +74,17 @@ public class UserController {
 
     @PatchMapping("/me")
     public ResponseEntity<BaseResponseDto<User>> updateUserProfile(
-            @AuthenticationPrincipal  User principal,
+            @AuthenticationPrincipal Long userId,
             @RequestBody @Valid UpdateProfileRequestDto requestDto) {
 
-        Long userId = principal.getUserId();
-        User updateUserInfo = userService.updateProfile(userId,requestDto);
+        User updateUserInfo = userService.updateProfile(userId, requestDto);
 
         return ResponseEntity.ok(new BaseResponseDto<>(HttpStatus.OK, updateUserInfo));
 
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<BaseResponseDto<User>> deleteMe(@AuthenticationPrincipal User principal) {
-
-        Long userId = principal.getUserId();
+    public ResponseEntity<BaseResponseDto<User>> deleteMe(@AuthenticationPrincipal Long userId) {
 
         userService.softDeleteUser(userId);
 

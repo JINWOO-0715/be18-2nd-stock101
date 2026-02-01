@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/dart")
+@RequestMapping("/api/v1/dart")
 @RequiredArgsConstructor
 @Tag(name = "DART API", description = "금융감독원 전자공시시스템(DART) 연동 API")
 public class DartController {
@@ -58,16 +58,6 @@ public class DartController {
         }
         
         return ResponseEntity.ok(result);
-    }
-
-    /**
-     * DART 공시 검색
-     */
-    @Operation(summary = "DART 공시 검색", description = "금융감독원 전자공시시스템(DART)에서 공시 정보를 검색합니다.")
-    @PostMapping("/search")
-    public ResponseEntity<DartDisclosureResponse> searchDartDisclosures(
-            @RequestBody DartDisclosureRequest request) {
-        return ResponseEntity.ok(dartApiService.searchDisclosures(request));
     }
 
     /**

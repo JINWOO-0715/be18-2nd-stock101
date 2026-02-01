@@ -47,6 +47,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/board/posts/{postId}/like").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/board/posts/{postId}/comments").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/board/me").authenticated()
+
+                        // 3) 공시보고서 업로드; 로그인 필요
+                        .requestMatchers(HttpMethod.POST, "/api/disclosure/upload").authenticated()
+
                         // 나머지 요청은 일단 모두 허용.
                         .anyRequest().permitAll()
                 )
@@ -72,17 +76,16 @@ public class SecurityConfig {
             CorsConfiguration corsConfiguration = new CorsConfiguration();
 
             // CORS 요청에서 허용할 출처를 지정한다.
-            // corsConfiguration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:5174"));
             corsConfiguration.setAllowedOriginPatterns(List.of("*"));
 
             // CORS 요청에서 허용할 HTTP 메소드를 지정한다.
             corsConfiguration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
             // 클라이언트가 요청 시 사용할 수 있는 헤더를 지정한다.
-            corsConfiguration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
+            corsConfiguration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
 
-            // 클라이언트가 응답에서 접근할 수 있는 헤더를 지정한다.
-            corsConfiguration.setExposedHeaders(List.of("Authorization"));
+            // 클라이언트가 응답에서 접근할 수 있는 헤더를 지정한다. (SSE 관련 헤더 포함)
+            corsConfiguration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
 
             // 자격 증명(쿠키, 세션) 허용 여부를 설정한다.
             corsConfiguration.setAllowCredentials(true);
