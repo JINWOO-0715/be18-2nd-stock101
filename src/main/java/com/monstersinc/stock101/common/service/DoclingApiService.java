@@ -1,6 +1,7 @@
 package com.monstersinc.stock101.common.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -14,9 +15,14 @@ public class DoclingApiService {
 
     private final WebClient webClient;
 
-    public DoclingApiService(WebClient.Builder webClientBuilder) {
+    // 생성자에서 환경 변수를 주입받습니다.
+    // 기본값은 http://docling-api:8000으로 설정하여 로컬 실행 시의 혼선을 방지합니다.
+    public DoclingApiService(
+            WebClient.Builder webClientBuilder,
+            @Value("${docling.api.url:http://docling-api:8000}") String baseUrl) {
+
         this.webClient = webClientBuilder
-                .baseUrl("http://127.0.0.1:8000") // Docling API의 실제 호스트와 포트로 변경
+                .baseUrl(baseUrl)
                 .build();
     }
 

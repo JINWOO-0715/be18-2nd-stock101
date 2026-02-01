@@ -61,6 +61,7 @@ apikey:
   kis-secret: ${KIS_API_SECRET}
   dart-api-key: ${DART_API_KEY:#{null}}
 
+
 # Server Configuration
 server:
   port: 8080
@@ -72,6 +73,10 @@ server:
       force: true
   # 운영 환경에서는 톰캣 서버 헤더 숨기기 권장
   server-header: " "
+
+docling:
+  api:
+    base-url: ${DOCLING_API_URL:http://docling-api:8000}
 
 # Actuator Configuration
 management:

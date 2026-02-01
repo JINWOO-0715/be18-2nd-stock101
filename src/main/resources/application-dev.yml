@@ -65,6 +65,10 @@ server:
       enabled: true
       force: true
 
+docling:
+  api:
+    base-url: ${DOCLING_API_URL:http://docling-api:8000}
+    
 # Actuator Configuration
 management:
   endpoints:
