@@ -67,7 +67,7 @@ server:
 
 docling:
   api:
-    base-url: ${DOCLING_API_URL:http://docling-api:8000}
+    base-url: ${DOCLING_API_URL:http://127.0.0.1:8000}
     
 # Actuator Configuration
 management:

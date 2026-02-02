@@ -41,7 +41,13 @@ public class DocumentAsyncProcessor {
     public void processDocumentAsync(Long sourceId, String filePath) {
         log.info("문서 비동기 처리 시작: sourceId={}", sourceId);
 
-        DisclosureSource source = null;
+        DisclosureSource source = sourceRepository.findById(sourceId)
+                .orElseThrow(() -> new IllegalArgumentException("문서를 찾을 수 없습니다: sourceId=" + sourceId));
+
+        String stockId = source.getStockId();
+        if (stockId == null || stockId.isEmpty()) {
+            log.warn("stockId가 없는 문서입니다: sourceId={}", sourceId);
+        }
 
         try (PDDocument document = Loader.loadPDF(new File(filePath))) {
             // PDF 유효성 검증
@@ -51,30 +57,23 @@ public class DocumentAsyncProcessor {
             documentVectorizationService.vectorizeDocument(sourceId, filePath);
 
             // 2. 인사이트 리포트 생성 및 저장 (컨텍스트 수집 → LLM 리포트 생성 → 저장)
-            insightReportService.generateAndSaveFullReport(sourceId);
+            // stockId를 전달하여 중복 조회 방지
+            insightReportService.generateAndSaveFullReport(sourceId, stockId);
 
             // 3. 상태 업데이트
             sourceRepository.updateStatus(sourceId, "COMPLETED");
             log.info("문서 처리 완료: sourceId={}", sourceId);
 
-            // 4. 문서 처리 완료 이벤트 발행
-            source = sourceRepository.findById(sourceId)
-                    .orElseThrow(() -> new IllegalArgumentException("문서를 찾을 수 없습니다."));
-
+            // 4. 문서 처리 완료 이벤트 발행 (이미 조회한 source 사용)
             publishDocumentProcessedEvent(source, "COMPLETED");
 
         } catch (Exception e) {
             log.error("문서 비동기 처리 중 오류 발생: sourceId={}", sourceId, e);
             sourceRepository.updateStatus(sourceId, "FAILED");
 
-            // 실패 이벤트 발행 (source 정보를 가져올 수 있다면)
+            // 실패 이벤트 발행 (이미 조회한 source 사용)
             try {
-                if (source == null) {
-                    source = sourceRepository.findById(sourceId).orElse(null);
-                }
-                if (source != null) {
-                    publishDocumentProcessedEvent(source, "FAILED");
-                }
+                publishDocumentProcessedEvent(source, "FAILED");
             } catch (Exception eventException) {
                 log.error("실패 이벤트 발행 중 오류: sourceId={}", sourceId, eventException);
             }

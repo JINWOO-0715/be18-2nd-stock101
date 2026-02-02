@@ -40,10 +40,11 @@ public class DisclosureController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DisclosureUploadResponse> uploadDocument(
             @Parameter(description = "PDF 파일") @RequestParam("file") MultipartFile file,
+            @Parameter(description = "주식 ID (선택)") @RequestParam(value = "stockId", required = false) String stockId,
             @AuthenticationPrincipal Long userId) {
 
         try {
-            DisclosureUploadResponse response = disclosureService.uploadDocument(file, userId);
+            DisclosureUploadResponse response = disclosureService.uploadDocument(file, userId, stockId);
             return ResponseEntity.ok(response);
         } catch (IOException e) {
             log.error("Failed to upload document", e);
@@ -53,6 +54,28 @@ public class DisclosureController {
                             .message("업로드 실패: " + e.getMessage())
                             .build());
         }
+    }
+
+    /**
+     * 최신 AI 리포트 목록 조회
+     */
+    @Operation(summary = "최신 AI 리포트 목록 조회", description = "최신 AI 분석 리포트 목록을 최신순으로 조회합니다. 기본 5개, 최대 50개까지 조회 가능합니다.")
+    @GetMapping("/reports/recent")
+    public ResponseEntity<List<AIDisclosureReport>> getRecentReports(
+            @Parameter(description = "조회할 개수 (기본값: 5, 최대: 50)")
+            @RequestParam(defaultValue = "5") int limit) {
+
+        // 유효성 검사: 최대 50개, 최소 1개로 제한
+        if (limit > 50) {
+            limit = 50;
+        }
+        if (limit < 1) {
+            limit = 5;
+        }
+
+        log.info("최신 AI 리포트 목록 조회 요청: limit={}", limit);
+        List<AIDisclosureReport> reports = aiReportService.getRecentReports(limit);
+        return ResponseEntity.ok(reports);
     }
 
     /**

@@ -38,4 +38,11 @@ public interface AIDisclosureReportRepository {
      */
     Optional<AIDisclosureReport> findById(@Param("reportId") Long reportId);
 
+    /**
+     * 최신 AI 리포트 목록 조회
+     * @param limit 조회할 개수
+     * @return 최신순으로 정렬된 AI 리포트 목록
+     */
+    List<AIDisclosureReport> findRecentReports(@Param("limit") int limit);
+
 }

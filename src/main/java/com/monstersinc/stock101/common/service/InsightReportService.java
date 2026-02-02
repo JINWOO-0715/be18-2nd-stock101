@@ -3,9 +3,7 @@ package com.monstersinc.stock101.common.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.monstersinc.stock101.disclosure.domain.DisclosureSource;
 import com.monstersinc.stock101.disclosure.repository.AIDisclosureReportRepository;
-import com.monstersinc.stock101.disclosure.repository.DisclosureSourceRepository;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,16 +27,16 @@ public class InsightReportService {
     private final EmbeddingService embeddingService;
     private final ChatLanguageModel chatModel;
     private final AIDisclosureReportRepository aidisclosureReportRepository;
-    private final DisclosureSourceRepository disclosureSourceRepository;
     private final ObjectMapper objectMapper;
 
     /**
      * 인사이트 리포트 생성 및 저장 (외부에서 한 줄로 호출 가능)
      *
      * @param sourceId 문서 소스 ID
+     * @param stockId 주식 ID (DB 조회 최적화를 위해 외부에서 전달)
      */
-    public void generateAndSaveFullReport(Long sourceId) {
-        log.info("인사이트 리포트 생성 시작: sourceId={}", sourceId);
+    public void generateAndSaveFullReport(Long sourceId, String stockId) {
+        log.info("인사이트 리포트 생성 시작: sourceId={}, stockId={}", sourceId, stockId);
 
         try {
             // 1. 요약/전망에 필요한 핵심 컨텍스트 수집 (Vector Search)
@@ -49,9 +47,9 @@ public class InsightReportService {
             String finalReport = generateFullInsightReport(relevantContext);
             log.debug("리포트 생성 완료: {} 문자", finalReport.length());
 
-            // 3. 리포트 저장
-            saveInsightReport(sourceId, finalReport);
-            log.info("인사이트 리포트 저장 완료: sourceId={}", sourceId);
+            // 3. 리포트 저장 (stockId를 전달하여 중복 DB 조회 방지)
+            saveInsightReport(sourceId, stockId, finalReport);
+            log.info("인사이트 리포트 저장 완료: sourceId={}, stockId={}", sourceId, stockId);
 
         } catch (Exception e) {
             log.error("인사이트 리포트 생성 실패: sourceId={}", sourceId, e);
@@ -65,20 +63,30 @@ public class InsightReportService {
     private String collectContextForReport(Long sourceId) {
         Map<String, String> themes = new LinkedHashMap<>();
 
-        // 1. 재무: 단순 수치뿐 아니라 수익성 지표(ROE, 영업이익률)와 비용 구조 포함
-        themes.put("재무 실적 및 수익성", "매출액 영업이익 당기순이익 수익성지표 ROE 영업이익률 비용구조 판관비");
+// 1. 수익 모델 (Top-line): '매출의 질'을 본다.
+        // P(가격) * Q(물량) 구조, 믹스 개선 등을 포괄
+        themes.put("매출 성장 요인 및 수익 구조",
+                "매출 증감 원인, 주요 제품 및 서비스 판매 추이, 판매 가격(ASP) 변동, 판매량(Q) 및 가동률, 지역별/부문별 매출 비중");
 
-        // 2. 사업: 가동률 외에 전방 산업의 수요 및 제품 포트폴리오 변화
-        themes.put("사업 부문별 성과", "주요 제품별 매출 비중 가동률 생산능력 신제품 출시 판매 경로");
+        // 2. 비용 및 이익 (Bottom-line): '효율성'을 본다.
+        // 원가율, 판관비, R&D 비용 등 모든 비용 이슈
+        themes.put("이익률 분석 및 비용 효율성",
+                "영업이익률 변동 사유, 매출원가율 추이, 판매관리비 구조, 고정비 및 변동비 효과, 손익분기점(BEP), 마진율 개선 요인");
 
-        // 3. 경쟁력: 단순 점유율 외에 진입 장벽과 핵심 기술력
-        themes.put("시장 지배력 및 경쟁 우위", "시장점유율 진입장벽 독점적 지위 경쟁사 대비 우위 핵심 기술력");
+        // 3. 시장 경쟁력 (Moat): '해자'를 본다.
+        // 점유율, 브랜드, 기술력, 독과점 여부
+        themes.put("시장 지배력 및 경쟁 우위",
+                "시장 점유율(M/S) 추이, 경쟁사 대비 차별점, 산업 내 진입 장벽, 핵심 경쟁력 및 기술적 우위, 브랜드 파워");
 
-        // 4. 리스크: 리포트의 신뢰도를 높여줄 부정적 요인 수집 (중요)
-        themes.put("잠재적 리스크 요인", "우발부채 소송 현황 원재료 가격 변동 리스크 규제 환경 거시경제 위협");
+        // 4. 외부 환경 및 리스크 (Macro & Risk): '통제 불가능 변수'를 본다.
+        // 규제, 환율, 금리, 원자재 등
+        themes.put("거시 경제 및 대외 리스크",
+                "환율 및 금리 영향, 원재료 가격 변동, 글로벌 경기 및 산업 사이클, 정부 정책 및 법적 규제, 지정학적 리스크");
 
-        // 5. 미래 가치: 이사의 진단 외에 구체적인 신규 투자 계획(CAPEX)
-        themes.put("미래 성장 동력 및 전략", "이사의 경영진단 분석의견 신규사업 진출 투자계획 CAPEX R&D 투자");
+        // 5. 미래 가치 (Future): '성장 잠재력'을 본다.
+        // CAPEX, 가이던스, 신사업
+        themes.put("미래 성장 전략 및 투자",
+                "신규 사업 진출 계획, 설비 투자(CAPEX) 및 R&D 로드맵, 경영진 실적 가이던스, 중장기 성장 목표, 주주 환원 정책");
 
         return themes.entrySet().stream()
                 .map(entry -> {
@@ -101,11 +109,21 @@ public class InsightReportService {
                 "당신은 글로벌 IB(투자은행) 출신의 수석 애널리스트입니다. 다음 [데이터]를 바탕으로 기관 투자자 수준의 '기업 분석 심층 리포트'를 JSON 형식으로 작성하세요.\n" +
                         "응답은 반드시 아래 제시된 JSON 스키마 구조를 엄수하며, 전문적인 금융 용어를 적절히 활용하세요.\n\n" +
                         "[데이터]\n%s\n\n" +
-                        "### 작성 지침:\n" +
-                        "1. **title**: 시장의 이목을 끌 수 있는 전문적인 제목 (예: [종목명]: 수익성 개선 가속화와 신성장 동력의 결합)\n" +
-                        "2. **summary_content**: [경영 현황 요약] 단순히 수치를 나열하지 말고, 실적 변동의 근본 원인(Factor Analysis), 시장 점유율 변화, 사업부별 기여도를 심층 서술하세요.\n" +
-                        "3. **prospect_content**: [향후 전망 및 전략] 업황 사이클 분석, 향후 1~2년 내 신규 사업의 기여도, 매크로 환경 변화에 따른 리스크 관리 전략을 서술하세요.\n" +
-                        "4. **content**: 'AI 한 줄 평' 영역. 투자자가 의사결정을 내릴 수 있는 날카로운 결론 한 문장을 작성하세요.\n" +
+                        "### ⚠️ 핵심 분석 원칙 (Strict Rules):\n" +
+                        "1. **재무적 중대성(Materiality) 중심:** 보고서의 모든 내용은 '기업의 주가'와 '미래 현금 흐름'에 영향을 미치는 요소여야 합니다. \n" +
+                        "   - 단순한 운영 활동(예: 통상적인 안전 교육, 의례적 행사, 미미한 규제 대응)은 과감히 배제하십시오.\n" +
+                        "   - 단, 규제나 이슈가 **막대한 비용(Cost)**이나 **매출 차질(Loss)**을 유발한다면 핵심 리스크로 다루십시오.\n" +
+                        "2. **구조적 원인 분석 (First Principles Thinking):** 현상을 나열하지 말고 근본 원인을 찾으십시오.\n" +
+                        "   - '매출 증가' (X) -> '고가 라인업 비중 확대로 인한 ASP 상승' (O)\n" +
+                        "   - '비용 감소' (X) -> '원자재 가격 하락 및 공정 효율화에 따른 마진 개선' (O)\n" +
+                        "3. **투자자 관점의 언어:** 해당 기업이 속한 산업의 핵심성과지표(KPI)를 사용하여 서술하십시오.\n\n" +
+
+                        "### 작성 지침 (Section Guide):\n" +
+                        "1. **title**: '[종목명]: [핵심 투자 포인트]' 형식을 따르며, 시장의 이목을 끄는 전문적인 문구 사용.\n" +
+                        "2. **summary_content**: 실적의 수치적 결과보다, 그 결과를 만든 **드라이버(Drivers: 가격, 물량, 비용, 환율 등)**를 중심으로 요약.\n" +
+                        "3. **prospect_content**: 단순한 낙관론을 배제하고, **확정된 투자 계획(CAPEX), 수주 잔고, 시장 성장률** 등 팩트에 기반하여 미래를 전망.\n" +
+                        "4. **key_points**: 투자 매력도(Upside Potential)와 리스크(Downside Risk)를 균형 있게 도출.\n" +
+                        "   - 리스크 작성 시: 단순 나열이 아니라, 회사가 이를 어떻게 **헤지(Hedge)** 하고 있는지, 혹은 통제 불가능한지 평가.\n" +
                         "5. **metrics_data**: '핵심 데이터 상세' 표. 매출, 이익 외에 해당 산업의 KPI(예: 영업이익률, 가동률, 부채비율 등)를 포함하여 5~6개 항목으로 구성하세요.\n" +
                         "6. **key_points**: '핵심 포인트' 영역. 투자 포인트 2개와 리스크 포인트 1~2개를 포함하여 날카로운 통찰력을 제공하세요.\n" +
                         "7. **investment_grade**: 데이터 근거 하에 '매수(BUY)', '보유(HOLD)', '주의(CAUTION)' 중 하나를 선택하세요.\n" +
@@ -131,21 +149,20 @@ public class InsightReportService {
 
     /**
      * 리포트 저장 - JSON 파싱 후 각 필드별로 저장
+     *
+     * @param sourceId 문서 소스 ID
+     * @param stockId 주식 ID (외부에서 전달받아 중복 조회 방지)
+     * @param reportContent LLM이 생성한 리포트 JSON 문자열
      */
-    private void saveInsightReport(Long sourceId, String reportContent) {
+    private void saveInsightReport(Long sourceId, String stockId, String reportContent) {
         try {
-            // 1. sourceId로 DisclosureSource 조회하여 stockId 가져오기
-            DisclosureSource source = disclosureSourceRepository.findById(sourceId)
-                    .orElseThrow(() -> new IllegalArgumentException("문서를 찾을 수 없습니다: sourceId=" + sourceId));
-            String stockId = source.getStockId();
-
-            // 2. JSON 응답 정제 (코드 블록이나 불필요한 텍스트 제거)
+            // 1. JSON 응답 정제 (코드 블록이나 불필요한 텍스트 제거)
             String cleanedJson = cleanJsonResponse(reportContent);
 
-            // 3. JSON 파싱
+            // 2. JSON 파싱
             Map<String, Object> reportMap = objectMapper.readValue(cleanedJson, new TypeReference<Map<String, Object>>() {});
 
-            // 4. 각 필드 추출
+            // 3. 각 필드 추출
             String title = (String) reportMap.get("title");
             String summaryContent = (String) reportMap.get("summary_content");
             String prospectContent = (String) reportMap.get("prospect_content");
@@ -178,7 +195,7 @@ public class InsightReportService {
             String investmentGrade = (String) reportMap.get("investment_grade");
             String content = (String) reportMap.get("content");
 
-            // 5. Repository를 통해 저장 (stockId 포함)
+            // 4. Repository를 통해 저장 (stockId는 파라미터로 전달받음)
             aidisclosureReportRepository.insertAiReport(
                 sourceId,
                 stockId,

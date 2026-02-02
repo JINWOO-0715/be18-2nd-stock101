@@ -19,8 +19,7 @@ public class DoclingApiService {
     // 기본값은 http://docling-api:8000으로 설정하여 로컬 실행 시의 혼선을 방지합니다.
     public DoclingApiService(
             WebClient.Builder webClientBuilder,
-            @Value("${docling.api.url:http://docling-api:8000}") String baseUrl) {
-
+            @Value("${docling.api.base-url:http://docling-api:8000}") String baseUrl) {
         this.webClient = webClientBuilder
                 .baseUrl(baseUrl)
                 .build();
