@@ -63,7 +63,7 @@ public class InsightReportService {
     private String collectContextForReport(Long sourceId) {
         Map<String, String> themes = new LinkedHashMap<>();
 
-// 1. 수익 모델 (Top-line): '매출의 질'을 본다.
+        // 1. 수익 모델 (Top-line): '매출의 질'을 본다.
         // P(가격) * Q(물량) 구조, 믹스 개선 등을 포괄
         themes.put("매출 성장 요인 및 수익 구조",
                 "매출 증감 원인, 주요 제품 및 서비스 판매 추이, 판매 가격(ASP) 변동, 판매량(Q) 및 가동률, 지역별/부문별 매출 비중");
@@ -119,8 +119,9 @@ public class InsightReportService {
                         "3. **투자자 관점의 언어:** 해당 기업이 속한 산업의 핵심성과지표(KPI)를 사용하여 서술하십시오.\n\n" +
 
                         "### 작성 지침 (Section Guide):\n" +
-                        "1. **title**: '[종목명]: [핵심 투자 포인트]' 형식을 따르며, 시장의 이목을 끄는 전문적인 문구 사용.\n" +
-                        "2. **summary_content**: 실적의 수치적 결과보다, 그 결과를 만든 **드라이버(Drivers: 가격, 물량, 비용, 환율 등)**를 중심으로 요약.\n" +
+                        "1. **title**: '[YYYY-MM-DD] [종목명]: [핵심 투자 포인트]' 형식을 엄수하십시오.\n" +
+                        "   - [YYYY-MM-DD] 자리에는 반드시 **실제 공시 제출 날짜**를 기입하십시오.\n" +
+                        "   - 핵심 투자 포인트는 시장의 이목을 끄는 전문적인 문구(예: 'ASP 상승에 따른 마진 스프레드 확대', 'HBM 공급망 진입에 따른 리레이팅 가시화' 등)를 사용하십시오.\n" +                        "2. **summary_content**: 실적의 수치적 결과보다, 그 결과를 만든 **드라이버(Drivers: 가격, 물량, 비용, 환율 등)**를 중심으로 요약.\n" +
                         "3. **prospect_content**: 단순한 낙관론을 배제하고, **확정된 투자 계획(CAPEX), 수주 잔고, 시장 성장률** 등 팩트에 기반하여 미래를 전망.\n" +
                         "4. **key_points**: 투자 매력도(Upside Potential)와 리스크(Downside Risk)를 균형 있게 도출.\n" +
                         "   - 리스크 작성 시: 단순 나열이 아니라, 회사가 이를 어떻게 **헤지(Hedge)** 하고 있는지, 혹은 통제 불가능한지 평가.\n" +
