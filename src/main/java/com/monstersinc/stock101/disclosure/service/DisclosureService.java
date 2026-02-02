@@ -46,7 +46,7 @@ public class DisclosureService {
 
         // 2. 중복 체크
         Optional<DisclosureSource> existing = sourceRepository.findByFileHash(fileHash);
-        if (existing.isPresent()) {
+        if (existing.isPresent() && existing.get().getStatus() != "FAILED") {
             log.info("Duplicate file detected: hash={}, existing sourceId={}", fileHash, existing.get().getSourceId());
             return DisclosureUploadResponse.builder()
                     .sourceId(existing.get().getSourceId())

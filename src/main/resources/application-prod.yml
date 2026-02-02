@@ -113,12 +113,12 @@ langchain4j:
   ollama:
     chat-model:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-      model-name: qwen2.5:14b
+      model-name: qwen2.5:7b
       temperature: 0.1
       timeout: 600s
     embedding-model:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-      model-name: bge-m3
+      model-name: bge-m3:latest
       timeout: 600s
 
   qdrant:
