@@ -3,6 +3,7 @@ package com.monstersinc.stock101.disclosure.service;
 import com.monstersinc.stock101.common.service.DocumentAsyncProcessor;
 import com.monstersinc.stock101.common.service.FileStorageService;
 import com.monstersinc.stock101.disclosure.domain.DisclosureSource;
+import com.monstersinc.stock101.disclosure.domain.ProcessStatus;
 import com.monstersinc.stock101.disclosure.dto.DisclosureUploadResponse;
 import com.monstersinc.stock101.disclosure.repository.DisclosureSourceRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,63 +42,144 @@ public class DisclosureService {
      */
     @Transactional
     public DisclosureUploadResponse uploadDocument(MultipartFile file, Long userId, String stockId) throws IOException {
-        // 1. 파일 해시 계산 (중복 체크)
         String fileHash = calculateFileHash(file);
 
-        // 2. 중복 체크
+        // 중복 체크 및 재업로드 처리
         Optional<DisclosureSource> existing = sourceRepository.findByFileHash(fileHash);
-        if (existing.isPresent() && existing.get().getStatus() != "FAILED") {
-            log.info("Duplicate file detected: hash={}, existing sourceId={}", fileHash, existing.get().getSourceId());
-            return DisclosureUploadResponse.builder()
-                    .sourceId(existing.get().getSourceId())
-                    .filePath(existing.get().getFilePath())
-                    .isDuplicate(true)
-                    .message("이미 업로드된 파일입니다.")
-                    .build();
+        if (existing.isPresent()) {
+            return handleExistingFile(existing.get(), file, fileHash);
         }
 
-        // 3. 파일 저장 (S3 또는 로컬)
-        String filePath = fileStorageService.storeFile(file, userId);
+        // 새 파일 업로드 처리
+        return handleNewFileUpload(file, userId, stockId, fileHash);
+    }
 
-        // 4. 저장소 타입 결정 (설정에 따라)
-        DisclosureSource.StorageType storageType = determineStorageType();
+    /**
+     * 기존 파일 처리 (재업로드 또는 중복)
+     */
+    private DisclosureUploadResponse handleExistingFile(DisclosureSource existingSource,
+                                                        MultipartFile file,
+                                                        String fileHash) {
+        ProcessStatus existingStatus = ProcessStatus.fromString(existingSource.getStatus());
 
-        // 5. 엔티티 생성 및 저장 (stockId 포함)
-        DisclosureSource source = DisclosureSource.builder()
-                .userId(userId)
-                .stockId(stockId)  // stockId 추가
-                .filePath(filePath)
-                .fileHash(fileHash)
-                .fileSize(file.getSize())
-                .status("PENDING")
-                .storageType(storageType)
-                .build();
-
-        // stockId가 없는 경우 로그 출력
-        if (stockId == null || stockId.isEmpty()) {
-            log.info("stockId 없이 문서 업로드: userId={}, sourceId will be assigned", userId);
+        if (existingStatus.isFailed()) {
+            return handleFailedFileReupload(existingSource, file, fileHash);
         }
 
-        sourceRepository.save(source);
+        return buildDuplicateResponse(existingSource);
+    }
 
-        // DB 커밋이 완료된 후에 비동기 로직을 실행하도록 등록
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                // DB 커밋이 성공한 직후 이 로직이 실행됩니다.
-                asyncProcessor.processDocumentAsync(source.getSourceId(), filePath);
-            }
-        });
+    /**
+     * 실패한 파일 재업로드 처리
+     */
+    private DisclosureUploadResponse handleFailedFileReupload(DisclosureSource existingSource,
+                                                               MultipartFile file,
+                                                               String fileHash) {
+        log.info("실패한 파일 재업로드: sourceId={}, status={}",
+                existingSource.getSourceId(), existingSource.getStatus());
+
+        Long sourceId = existingSource.getSourceId();
+        String filePath = existingSource.getFilePath();
+
+        // 상태 초기화 및 비동기 처리 재시작
+        sourceRepository.updateStatus(sourceId, ProcessStatus.PENDING.name());
+        scheduleAsyncProcessing(sourceId, filePath);
 
         return DisclosureUploadResponse.builder()
-                .sourceId(source.getSourceId())
+                .sourceId(sourceId)
                 .filePath(filePath)
                 .fileSize(file.getSize())
                 .fileHash(fileHash)
-                .storageType(storageType.name())
+                .storageType(existingSource.getStorageType().name())
+                .isDuplicate(false)
+                .message("재업로드 성공 - 실패한 단계부터 재시작합니다.")
+                .build();
+    }
+
+    /**
+     * 중복 파일 응답 생성
+     */
+    private DisclosureUploadResponse buildDuplicateResponse(DisclosureSource existingSource) {
+        log.info("Duplicate file detected: hash={}, existing sourceId={}, status={}",
+                existingSource.getFileHash(), existingSource.getSourceId(), existingSource.getStatus());
+
+        return DisclosureUploadResponse.builder()
+                .sourceId(existingSource.getSourceId())
+                .filePath(existingSource.getFilePath())
+                .isDuplicate(true)
+                .message("이미 업로드된 파일입니다.")
+                .build();
+    }
+
+    /**
+     * 새 파일 업로드 처리
+     */
+    private DisclosureUploadResponse handleNewFileUpload(MultipartFile file,
+                                                          Long userId,
+                                                          String stockId,
+                                                          String fileHash) throws IOException {
+        // 파일 저장
+        String filePath = fileStorageService.storeFile(file, userId);
+        DisclosureSource.StorageType storageType = determineStorageType();
+
+        // 엔티티 생성 및 저장
+        DisclosureSource source = createDisclosureSource(userId, stockId, filePath, fileHash,
+                                                         file.getSize(), storageType);
+        sourceRepository.save(source);
+
+        // 비동기 처리 등록
+        scheduleAsyncProcessing(source.getSourceId(), filePath);
+
+        return buildUploadSuccessResponse(source, fileHash);
+    }
+
+    /**
+     * DisclosureSource 엔티티 생성
+     */
+    private DisclosureSource createDisclosureSource(Long userId, String stockId, String filePath,
+                                                     String fileHash, long fileSize,
+                                                     DisclosureSource.StorageType storageType) {
+        if (stockId == null || stockId.isEmpty()) {
+            log.info("stockId 없이 문서 업로드: userId={}", userId);
+        }
+
+        return DisclosureSource.builder()
+                .userId(userId)
+                .stockId(stockId)
+                .filePath(filePath)
+                .fileHash(fileHash)
+                .fileSize(fileSize)
+                .status(ProcessStatus.PENDING.name())
+                .storageType(storageType)
+                .build();
+    }
+
+    /**
+     * 업로드 성공 응답 생성
+     */
+    private DisclosureUploadResponse buildUploadSuccessResponse(DisclosureSource source, String fileHash) {
+        return DisclosureUploadResponse.builder()
+                .sourceId(source.getSourceId())
+                .filePath(source.getFilePath())
+                .fileSize(source.getFileSize())
+                .fileHash(fileHash)
+                .storageType(source.getStorageType().name())
                 .isDuplicate(false)
                 .message("업로드 성공")
                 .build();
+    }
+
+    /**
+     * 비동기 처리 스케줄링
+     * DB 커밋 후 실행되도록 등록
+     */
+    private void scheduleAsyncProcessing(Long sourceId, String filePath) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                asyncProcessor.processDocumentAsync(sourceId, filePath);
+            }
+        });
     }
 
 
