@@ -91,10 +91,10 @@ management:
 # Logging Configuration (중요 수정)
 logging:
   level:
-    root: DEBUG
-    com.monstersinc.stock101: DEBUG # DEBUG에서 상향 조정
-    org.springframework.security: DEBUG
-    org.springframework.web: DEBUG
+    root: INFO
+    com.monstersinc.stock101: INFO # DEBUG에서 상향 조정
+    org.springframework.security: INFO
+    org.springframework.web: INFO
     org.mybatis: INFO # SQL 파라미터 노출 방지를 위해 INFO로 상향
   pattern:
     # 운영 환경에서는 보안을 위해 메시지 마스킹 패턴 적용 권장
