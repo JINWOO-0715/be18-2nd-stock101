@@ -35,10 +35,12 @@ public class DisclosureService {
     /**
      * 공시보고서 업로드
      * @param file PDF 파일
+     * @param userId 사용자 ID
+     * @param stockId 주식 ID (선택)
      * @return 업로드된 소스 파일 정보
      */
     @Transactional
-    public DisclosureUploadResponse uploadDocument(MultipartFile file,  Long userID) throws IOException {
+    public DisclosureUploadResponse uploadDocument(MultipartFile file, Long userId, String stockId) throws IOException {
         // 1. 파일 해시 계산 (중복 체크)
         String fileHash = calculateFileHash(file);
 
@@ -55,20 +57,26 @@ public class DisclosureService {
         }
 
         // 3. 파일 저장 (S3 또는 로컬)
-        String filePath = fileStorageService.storeFile(file, userID);
+        String filePath = fileStorageService.storeFile(file, userId);
 
         // 4. 저장소 타입 결정 (설정에 따라)
         DisclosureSource.StorageType storageType = determineStorageType();
 
-        // 5. 엔티티 생성 및 저장
+        // 5. 엔티티 생성 및 저장 (stockId 포함)
         DisclosureSource source = DisclosureSource.builder()
-                .userId(userID)
+                .userId(userId)
+                .stockId(stockId)  // stockId 추가
                 .filePath(filePath)
                 .fileHash(fileHash)
                 .fileSize(file.getSize())
                 .status("PENDING")
                 .storageType(storageType)
                 .build();
+
+        // stockId가 없는 경우 로그 출력
+        if (stockId == null || stockId.isEmpty()) {
+            log.info("stockId 없이 문서 업로드: userId={}, sourceId will be assigned", userId);
+        }
 
         sourceRepository.save(source);
 
