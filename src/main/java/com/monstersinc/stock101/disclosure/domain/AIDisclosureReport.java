@@ -77,4 +77,6 @@ public class AIDisclosureReport {
      * 생성 일시
      */
     private LocalDateTime createdAt;
+
+    private String companyName;
 }

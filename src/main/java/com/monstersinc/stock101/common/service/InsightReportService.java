@@ -63,6 +63,10 @@ public class InsightReportService {
     private String collectContextForReport(Long sourceId) {
         Map<String, String> themes = new LinkedHashMap<>();
 
+        themes.put("기업 정보",
+                "종목 이름, 반기 공시 문서 종류, 공시 날짜, 산업군, 주요 제품 및 서비스, 최근 주가 동향");
+
+
         // 1. 수익 모델 (Top-line): '매출의 질'을 본다.
         // P(가격) * Q(물량) 구조, 믹스 개선 등을 포괄
         themes.put("매출 성장 요인 및 수익 구조",
@@ -102,42 +106,101 @@ public class InsightReportService {
     }
 
     /**
-     * 최종 리포트 생성 (요약 + 전망 체이닝)
+     * 최종 리포트 생성 (2단계 API 호출로 토큰 분산)
+     * 1단계: 기본 정보 + 요약 + 메트릭스 생성
+     * 2단계: 전망 + 핵심 포인트 + 투자 등급 생성
      */
     public String generateFullInsightReport(String context) {
-        String prompt = String.format(
-                "당신은 글로벌 IB(투자은행) 출신의 수석 애널리스트입니다. 다음 [데이터]를 바탕으로 기관 투자자 수준의 '기업 분석 심층 리포트'를 JSON 형식으로 작성하세요.\n" +
-                        "응답은 반드시 아래 제시된 JSON 스키마 구조를 엄수하며, 전문적인 금융 용어를 적절히 활용하세요.\n\n" +
-                        "[데이터]\n%s\n\n" +
-                        "### ⚠️ 핵심 분석 원칙 (Strict Rules):\n" +
-                        "1. **재무적 중대성(Materiality) 중심:** 보고서의 모든 내용은 '기업의 주가'와 '미래 현금 흐름'에 영향을 미치는 요소여야 합니다. \n" +
-                        "   - 단순한 운영 활동(예: 통상적인 안전 교육, 의례적 행사, 미미한 규제 대응)은 과감히 배제하십시오.\n" +
-                        "   - 단, 규제나 이슈가 **막대한 비용(Cost)**이나 **매출 차질(Loss)**을 유발한다면 핵심 리스크로 다루십시오.\n" +
-                        "2. **구조적 원인 분석 (First Principles Thinking):** 현상을 나열하지 말고 근본 원인을 찾으십시오.\n" +
-                        "   - '매출 증가' (X) -> '고가 라인업 비중 확대로 인한 ASP 상승' (O)\n" +
-                        "   - '비용 감소' (X) -> '원자재 가격 하락 및 공정 효율화에 따른 마진 개선' (O)\n" +
-                        "3. **투자자 관점의 언어:** 해당 기업이 속한 산업의 핵심성과지표(KPI)를 사용하여 서술하십시오.\n\n" +
+        try {
+            // 1단계: 기본 정보와 요약, 메트릭스 생성
+            String summaryResponse = generateSummaryAndMetrics(context);
+            log.debug("1단계 생성 완료: {} 문자", summaryResponse.length());
 
-                        "### 작성 지침 (Section Guide):\n" +
-                        "1. **title**: '[YYYY-MM-DD] [종목명]: [핵심 투자 포인트]' 형식을 엄수하십시오.\n" +
-                        "   - [YYYY-MM-DD] 자리에는 반드시 **실제 공시 제출 날짜**를 기입하십시오.\n" +
-                        "   - 핵심 투자 포인트는 시장의 이목을 끄는 전문적인 문구(예: 'ASP 상승에 따른 마진 스프레드 확대', 'HBM 공급망 진입에 따른 리레이팅 가시화' 등)를 사용하십시오.\n" +                        "2. **summary_content**: 실적의 수치적 결과보다, 그 결과를 만든 **드라이버(Drivers: 가격, 물량, 비용, 환율 등)**를 중심으로 요약.\n" +
-                        "3. **prospect_content**: 단순한 낙관론을 배제하고, **확정된 투자 계획(CAPEX), 수주 잔고, 시장 성장률** 등 팩트에 기반하여 미래를 전망.\n" +
-                        "4. **key_points**: 투자 매력도(Upside Potential)와 리스크(Downside Risk)를 균형 있게 도출.\n" +
-                        "   - 리스크 작성 시: 단순 나열이 아니라, 회사가 이를 어떻게 **헤지(Hedge)** 하고 있는지, 혹은 통제 불가능한지 평가.\n" +
-                        "5. **metrics_data**: '핵심 데이터 상세' 표. 매출, 이익 외에 해당 산업의 KPI(예: 영업이익률, 가동률, 부채비율 등)를 포함하여 5~6개 항목으로 구성하세요.\n" +
-                        "6. **key_points**: '핵심 포인트' 영역. 투자 포인트 2개와 리스크 포인트 1~2개를 포함하여 날카로운 통찰력을 제공하세요.\n" +
-                        "7. **investment_grade**: 데이터 근거 하에 '매수(BUY)', '보유(HOLD)', '주의(CAUTION)' 중 하나를 선택하세요.\n" +
-                        "8. **sentiment_score**: -1.00 ~ 1.00 사이의 수치.\n\n" +
-                        "### JSON Schema:\n" +
+            // 2단계: 전망 및 종합 분석 생성 (추가 필드만)
+            String prospectResponse = generateProspectAndAnalysis(context);
+            log.debug("2단계 생성 완료: {} 문자", prospectResponse.length());
+
+            // 3단계: 두 JSON 병합
+            String mergedResponse = mergeJsonResponses(summaryResponse, prospectResponse);
+            log.debug("병합 완료: {} 문자", mergedResponse.length());
+
+            return mergedResponse;
+
+        } catch (Exception e) {
+            log.error("리포트 생성 중 오류 발생", e);
+            throw new RuntimeException("리포트 생성 실패", e);
+        }
+    }
+
+    /**
+     * 1단계: 기본 정보, 요약, 메트릭스 생성 (과거/현재 분석)
+     */
+    private String generateSummaryAndMetrics(String context) {
+        String prompt = String.format(
+                "당신은 글로벌 IB(투자은행) 출신의 수석 애널리스트입니다. 다음 [데이터]를 바탕으로 기업 분석 리포트의 **1단계: 기본 정보 및 실적 요약**을 JSON 형식으로 작성하세요.\n\n" +
+                        "[데이터]\n%s\n\n" +
+                        "### ⚠️ 핵심 분석 원칙:\n" +
+                        "1. **재무적 중대성(Materiality) 중심:** '기업의 주가'와 '미래 현금 흐름'에 영향을 미치는 요소에 집중\n" +
+                        "   - 단순 운영 활동(안전 교육, 의례적 행사, 미미한 규제)은 배제\n" +
+                        "   - 막대한 비용이나 매출 차질을 유발하는 이슈는 핵심으로 다룸\n" +
+                        "2. **구조적 원인 분석:** 현상이 아닌 근본 원인 분석\n" +
+                        "   - '매출 증가' (X) → '고가 라인업 비중 확대로 인한 ASP 상승' (O)\n" +
+                        "   - '비용 감소' (X) → '원자재 가격 하락 및 공정 효율화에 따른 마진 개선' (O)\n" +
+                        "3. **투자자 관점의 언어:** 해당 산업의 핵심성과지표(KPI) 활용\n\n" +
+
+                        "### 작성 지침:\n" +
+                        "1. **title**: ' [종목명]: YYYY-반기/분기 보고서 [핵심 투자 포인트]' 형식\n" +
+                        "   - 실제 공시 제출 날짜 기반으로 반기/분기 선택\n" +
+                        "   - 핵심 투자 포인트는 전문적 문구 사용 (60자 내외)\n" +
+                        "   - 예: 'ASP 상승에 따른 마진 스프레드 확대', 'HBM 공급망 진입에 따른 리레이팅 가시화'\n" +
+                        "2. **content**: 해당 문서를 100자 내외로 간략 요약\n" +
+                        "3. **summary_content**: 실적의 드라이버(가격, 물량, 비용, 환율 등) 중심으로 200자 요약\n" +
+                        "4. **metrics_data**: 핵심 데이터 표 (3-4개 항목 )\n" +
+                        "   - 매출, 이익 외에 해당 산업의 KPI 포함 (영업이익률, 가동률, 부채비율 등)\n" +
+                        "   - [수치 표기]: 금액은 '억' 단위로 가독성 있게 요약 (예: 1,100억원).이때 금액 앞 뒤 괄호 사용하지 말것. \n" +
+                        "   - [증감(variance) 계산 규칙]:\n" +
+
+                        "### JSON Schema (3500토큰 이내):\n" +
                         "{\n" +
                         "  \"title\": \"string\",\n" +
                         "  \"content\": \"string\",\n" +
                         "  \"summary_content\": \"string\",\n" +
-                        "  \"prospect_content\": \"string\",\n" +
                         "  \"metrics_data\": [\n" +
                         "    {\"item\": \"항목명\", \"current\": \"수치\", \"previous\": \"수치\", \"variance\": \"증감\"}\n" +
-                        "  ],\n" +
+                        "  ]\n" +
+                        "}",
+                context
+        );
+
+        return chatModel.generate(prompt);
+    }
+
+    /**
+     * 2단계: 전망, 핵심 포인트, 투자 등급 생성 (미래 분석, 새로운 필드만)
+     */
+    private String generateProspectAndAnalysis(String context) {
+        String prompt = String.format(
+                "당신은 글로벌 IB(투자은행) 출신의 수석 애널리스트입니다. [원본 데이터]를 바탕으로 **전망 및 투자 분석**을 JSON 형식으로 작성하세요.\n\n" +
+                        "[원본 데이터]\n%s\n\n" +
+
+                        "### ⚠️ 핵심 분석 원칙:\n" +
+                        "1. **재무적 중대성** 중심: 주가와 현금 흐름에 영향을 미치는 요소만 다룸\n" +
+                        "2. **구조적 원인 분석**: 현상이 아닌 근본 원인 파악\n" +
+                        "3. **투자자 관점의 언어**: 산업별 KPI 활용\n\n" +
+
+                        "### 작성 지침:\n" +
+                        "1. **prospect_content**: 팩트 기반 미래 전망 (200자 내외)\n" +
+                        "   - 확정된 투자 계획(CAPEX), 수주 잔고, 시장 성장률 등 구체적 근거 제시\n" +
+                        "   - 단순 낙관론 배제\n" +
+                        "2. **key_points**: 투자 매력도와 리스크의 균형 (3-4개 항목, 각 150자 내외)\n" +
+                        "   - 투자 포인트 2개: Upside Potential\n" +
+                        "   - 리스크 포인트 1~2개: 회사의 헤지 전략 또는 통제 불가능 여부 평가\n" +
+                        "3. **investment_grade**: 데이터 근거하에 '매수(BUY)', '보유(HOLD)', '주의(CAUTION)' 선택\n" +
+                        "4. **sentiment_score**: -1.00 ~ 1.00 사이 수치\n\n" +
+
+                        "### JSON Schema (추가 필드만 생성, 3500토큰 이내):\n" +
+                        "{\n" +
+                        "  \"prospect_content\": \"string\",\n" +
                         "  \"key_points\": [\"string\"],\n" +
                         "  \"investment_grade\": \"string\",\n" +
                         "  \"sentiment_score\": 0.00\n" +
@@ -146,6 +209,31 @@ public class InsightReportService {
         );
 
         return chatModel.generate(prompt);
+    }
+
+    /**
+     * 1단계와 2단계 JSON 응답 병합
+     */
+    private String mergeJsonResponses(String summaryJson, String prospectJson) {
+        try {
+            // JSON 정제
+            String cleanedSummary = cleanJsonResponse(summaryJson);
+            String cleanedProspect = cleanJsonResponse(prospectJson);
+
+            // Map으로 파싱
+            Map<String, Object> summaryMap = objectMapper.readValue(cleanedSummary, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> prospectMap = objectMapper.readValue(cleanedProspect, new TypeReference<Map<String, Object>>() {});
+
+            // 병합 (2단계 내용을 1단계에 추가)
+            summaryMap.putAll(prospectMap);
+
+            // 다시 JSON 문자열로 변환
+            return objectMapper.writeValueAsString(summaryMap);
+
+        } catch (JsonProcessingException e) {
+            log.error("JSON 병합 실패", e);
+            throw new RuntimeException("JSON 병합 중 오류 발생", e);
+        }
     }
 
     /**

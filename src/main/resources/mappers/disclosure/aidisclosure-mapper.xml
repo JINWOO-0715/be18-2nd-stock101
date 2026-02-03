@@ -16,6 +16,7 @@
         <result property="investmentGrade" column="investment_grade"/>
         <result property="content" column="content"/>
         <result property="createdAt" column="created_at"/>
+        <result property="companyName" column="stock_name"/>
     </resultMap>
 
     <insert id="insertAiReport" parameterType="map">
@@ -70,8 +71,9 @@
 
     <!-- 최신 AI 리포트 목록 조회 -->
     <select id="findRecentReports" resultMap="AIDisclosureReportMap">
-        SELECT *
-        FROM ai_disclosure_report
+        SELECT r.*,s.name As stock_name
+        FROM ai_disclosure_report r
+        JOIN stocks s ON r.stock_id = s.stock_id
         ORDER BY created_at DESC
         LIMIT #{limit}
     </select>

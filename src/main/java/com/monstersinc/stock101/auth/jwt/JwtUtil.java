@@ -88,9 +88,13 @@ public class JwtUtil {
 
     // 토큰이 유효한지 확인하는 메소드 (토큰이 유효하면 true, 만료되었으면 false 반환)
     public boolean validateToken(String token) {
-
-        // JWT의 만료 시간(Expiration)을 가져와서 현재 시간과 비교하여 토큰이 만료되었는지 확인
-        return !getClaims(token).getExpiration().before(new Date());
+        try {
+            // JWT의 만료 시간(Expiration)을 가져와서 현재 시간과 비교하여 토큰이 만료되었는지 확인
+            return !getClaims(token).getExpiration().before(new Date());
+        } catch (Exception e) {
+            log.warn("Invalid JWT token: {}", e.getMessage());
+            return false;
+        }
     }
 
 
@@ -106,7 +110,12 @@ public class JwtUtil {
                     .parseSignedClaims(token)
                     .getPayload();
         } catch (ExpiredJwtException e) {
+            // 만료된 토큰의 경우에도 클레임 정보가 필요할 수 있으므로 반환
             return e.getClaims();
+        } catch (Exception e) {
+            // 그 외 모든 JWT 관련 예외는 여기서 로그를 남기고 재발생
+            log.error("Failed to parse JWT token: {}", e.getMessage());
+            throw e;
         }
     }
 }

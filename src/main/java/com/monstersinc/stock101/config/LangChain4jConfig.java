@@ -3,6 +3,7 @@ package com.monstersinc.stock101.config;
 
 import dev.langchain4j.model.chat.ChatLanguageModel;
 
+import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,8 +33,9 @@ public class LangChain4jConfig {
                 .modelName("gemini-2.5-flash")
                 .apiKey(apiKey)
                 .temperature(0.1)
-                .maxOutputTokens(4000)  // 답변 잘림 방지 (적절한 수준)
+                .maxOutputTokens(8000)  // 긴 리포트 생성을 위해 증가
                 .timeout(Duration.ofMinutes(10))
+                .responseFormat(ResponseFormat.JSON)  // JSON 응답 형식 강제
                 .build();
     }
 }
