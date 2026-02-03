@@ -66,7 +66,7 @@ public class DocumentAsyncProcessor {
 
             // 1. 문서 벡터화 (추출 → 청킹 → 임베딩)
             // 리포트 생성 실패가 아닌 경우 벡터화 수행
-            if (resumeFromStatus == null || resumeFromStatus != ProcessStatus.REPORT_FAILED) {
+            if (resumeFromStatus == null || resumeFromStatus.isBefore(ProcessStatus.REPORT_FAILED)) {
                 documentVectorizationService.vectorizeDocument(sourceId, filePath, resumeFromStatus);
             }
 

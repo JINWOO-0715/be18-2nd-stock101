@@ -81,9 +81,7 @@ public class DisclosureService {
         Long sourceId = existingSource.getSourceId();
         String filePath = existingSource.getFilePath();
 
-        // 상태 초기화 및 비동기 처리 재시작
-        sourceRepository.updateStatus(sourceId, ProcessStatus.PENDING.name());
-        scheduleAsyncProcessing(sourceId, filePath);
+       scheduleAsyncProcessing(sourceId, filePath);
 
         return DisclosureUploadResponse.builder()
                 .sourceId(sourceId)

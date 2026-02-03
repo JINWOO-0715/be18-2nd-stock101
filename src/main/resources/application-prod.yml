@@ -109,6 +109,11 @@ springdoc:
     enabled: false
 
 # LangChain4j Configuration
+gemini:
+  api:
+    key:${GEMINI_API_KEY}
+
+# LangChain4j Configuration
 langchain4j:
   ollama:
     chat-model:

@@ -30,8 +30,8 @@ public enum ProcessStatus {
     /**
      * 현재 상태가 지정된 단계보다 이전이거나 같은지 확인
      */
-    public boolean isBeforeOrEqual(ProcessStatus other) {
-        return this.order <= other.order;
+    public boolean isBefore(ProcessStatus other) {
+        return this.order < other.order;
     }
 
     /**

@@ -39,7 +39,7 @@ public class DocumentVectorizationService {
         try {
             // 1. PDF를 마크다운으로 변환
             // resumeFromStatus가 null이거나 추출 단계 이하에서 실패한 경우
-            if (resumeFromStatus == null || resumeFromStatus.isBeforeOrEqual(ProcessStatus.EXTRACTION_FAILED)) {
+            if (resumeFromStatus == null || resumeFromStatus.isBefore(ProcessStatus.EXTRACTION_FAILED)) {
                 sourceRepository.updateStatus(sourceId, ProcessStatus.EXTRACTING.name());
                 fullMarkdown = doclingApiService.callAnalyze(filePath);
                 log.debug("Docling 변환 완료: {} 문자", fullMarkdown.length());
@@ -47,7 +47,7 @@ public class DocumentVectorizationService {
 
             // 2. 마크다운 청킹
             // resumeFromStatus가 null이거나 청킹 단계 이하에서 실패한 경우
-            if (resumeFromStatus == null || resumeFromStatus.isBeforeOrEqual(ProcessStatus.CHUNKING_FAILED)) {
+            if (resumeFromStatus == null || resumeFromStatus.isBefore(ProcessStatus.CHUNKING_FAILED)) {
                 sourceRepository.updateStatus(sourceId, ProcessStatus.CHUNKING.name());
 
                 // 재시작인 경우 마크다운을 다시 로드
@@ -61,7 +61,7 @@ public class DocumentVectorizationService {
 
             // 3. 임베딩 및 벡터 DB 저장
             // resumeFromStatus가 null이거나 임베딩 단계 이하에서 실패한 경우
-            if (resumeFromStatus == null || resumeFromStatus.isBeforeOrEqual(ProcessStatus.EMBEDDING_FAILED)) {
+            if (resumeFromStatus == null || resumeFromStatus.isBefore(ProcessStatus.EMBEDDING_FAILED)) {
                 sourceRepository.updateStatus(sourceId, ProcessStatus.EMBEDDING.name());
 
                 // 재시작인 경우 청크를 다시 생성

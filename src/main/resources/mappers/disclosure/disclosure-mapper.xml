@@ -18,12 +18,16 @@
     </resultMap>
 
     <!-- 소스 파일 저장 -->
-    <insert id="save" useGeneratedKeys="true" keyProperty="sourceId">
+    <insert id="save" parameterType="com.monstersinc.stock101.disclosure.domain.DisclosureSource">
+        <selectKey keyProperty="sourceId" resultType="long" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+
         INSERT INTO documents (
-            user_id, stock_id, file_path, file_hash, file_size, storage_type, status, company_name
+        user_id, stock_id, file_path, file_hash, file_size, storage_type, status, company_name
         )
         SELECT
-            #{userId}, #{stockId}, #{filePath}, #{fileHash}, #{fileSize}, #{storageType}, #{status}, s.name
+        #{userId}, #{stockId}, #{filePath}, #{fileHash}, #{fileSize}, #{storageType}, #{status}, s.name
         FROM stocks s
         WHERE s.stock_id = #{stockId}
     </insert>

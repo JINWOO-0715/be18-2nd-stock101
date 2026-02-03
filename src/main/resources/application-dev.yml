@@ -107,6 +107,10 @@ springdoc:
   default-produces-media-type: application/json
 
 # LangChain4j Configuration
+gemini:
+  api:
+    key: ${GEMINI_API_KEY}
+
 langchain4j:
   ollama:
     chat-model:

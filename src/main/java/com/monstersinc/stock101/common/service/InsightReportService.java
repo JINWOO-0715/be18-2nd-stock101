@@ -104,7 +104,7 @@ public class InsightReportService {
     /**
      * 최종 리포트 생성 (요약 + 전망 체이닝)
      */
-    private String generateFullInsightReport(String context) {
+    public String generateFullInsightReport(String context) {
         String prompt = String.format(
                 "당신은 글로벌 IB(투자은행) 출신의 수석 애널리스트입니다. 다음 [데이터]를 바탕으로 기관 투자자 수준의 '기업 분석 심층 리포트'를 JSON 형식으로 작성하세요.\n" +
                         "응답은 반드시 아래 제시된 JSON 스키마 구조를 엄수하며, 전문적인 금융 용어를 적절히 활용하세요.\n\n" +
