@@ -1,9 +1,16 @@
 package com.monstersinc.stock101.kis.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.monstersinc.stock101.common.ratelimit.RateLimitException;
+import com.monstersinc.stock101.common.ratelimit.RateLimiter;
 import com.monstersinc.stock101.kis.dto.KisCandleResponse;
+import com.monstersinc.stock101.kis.dto.UpdateResponse;
 import com.monstersinc.stock101.kis.model.mapper.ApiTokenMapper;
 import com.monstersinc.stock101.kis.model.vo.ApiToken;
+import com.monstersinc.stock101.kis.queue.RequestStatus;
+import com.monstersinc.stock101.kis.queue.StockPriceUpdateQueue;
+import com.monstersinc.stock101.kis.queue.StockPriceUpdateRequest;
+import com.monstersinc.stock101.kis.queue.StockPriceUpdateRequest.RequestPriority;
 import com.monstersinc.stock101.stock.model.mapper.StockPriceRepository;
 import com.monstersinc.stock101.stock.model.vo.Stock;
 import com.monstersinc.stock101.stock.model.vo.StockPrice;
@@ -29,6 +36,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * KIS(한국투자증권) API 서비스
@@ -43,6 +51,9 @@ public class KisStockPriceService {
     private final StockMapper stockMapper;
     private final StockPriceRepository stockPriceRepository;
     private final ApiTokenMapper apiTokenMapper;
+    private final RateLimiter rateLimiter;
+    private final StockPriceUpdateQueue queue;
+    private final KisApiClient kisApiClient;
 
     @Value("${apikey.kis-key}")
     private String kisKey;
@@ -62,22 +73,22 @@ public class KisStockPriceService {
     private static final DateTimeFormatter TOKEN_EXPIRE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /**
-     * 종목의 일봉 데이터를 최신 상태로 업데이트
-     * - DB에서 가장 최근 날짜 조회
-     * - 최근 날짜가 없으면 2023-01-01부터, 있으면 그 다음날부터 오늘까지 KIS API 호출
-     * - 이미 오늘까지 데이터가 있으면 업데이트 스킵
+     * [수정] 종목의 일봉 데이터를 최신 상태로 업데이트
+     * - 우선순위에 따라 동기/비동기 처리
+     * - 1-2회 API 호출: 동기 처리 (즉시 반환)
+     * - 3회 이상 API 호출: 비동기 Queue 처리 (requestId 반환)
      *
      * @param stockCode 종목코드 (6자리 숫자 문자열)
-     * @return 저장/업데이트된 시세 데이터 개수
+     * @return 업데이트 응답 (동기/비동기 정보 포함)
      */
     @Transactional
-    public int updateStockPrices(String stockCode) {
+    public UpdateResponse updateStockPrices(String stockCode) {
         try {
             // 1. 종목 정보 조회
             Stock stock = stockMapper.selectStockByCode(stockCode);
             if (stock == null) {
                 log.warn("종목을 찾을 수 없습니다: {}", stockCode);
-                return 0;
+                throw new RuntimeException("종목을 찾을 수 없습니다: " + stockCode);
             }
 
             Long stockId = stock.getStockId();
@@ -85,7 +96,7 @@ public class KisStockPriceService {
 
             // 2. DB에서 가장 최근 날짜 조회
             LocalDate latestDate = stockPriceRepository.findLatestDateByStockId(stockId);
-            
+
             LocalDate startDate;
             if (latestDate == null) {
                 // 데이터가 없으면 2023-01-01부터
@@ -94,31 +105,74 @@ public class KisStockPriceService {
             } else if (!latestDate.isBefore(today)) {
                 // 이미 오늘까지 데이터가 있으면 스킵
                 log.debug("종목 {} 이미 최신 상태 (최근 데이터: {})", stockCode, latestDate);
-                return 0;
+                return UpdateResponse.alreadyUpToDate();
             } else {
                 // 마지막 날짜 다음날부터
                 startDate = latestDate.plusDays(1);
                 log.info("📊 종목 {} 마지막 데이터: {}, {}부터 업데이트 시작", stockCode, latestDate, startDate);
             }
 
-            // 3. KIS API에서 데이터 조회 및 저장
-            return fetchAndSavePrices(stockId, stockCode, startDate, today);
+            // 3. 우선순위 판단 (API 호출 횟수 기준)
+            RequestPriority priority = StockPriceUpdateRequest.decidePriority(startDate, today);
+
+            if (priority == RequestPriority.HIGH) {
+                // 동기 처리 (1-2회 API 호출)
+                log.info("동기 처리 시작: stockCode={}", stockCode);
+                int saved = fetchAndSavePricesSync(stockId, stockCode, startDate, today);
+                return UpdateResponse.completedSync(saved);
+
+            } else {
+                // 비동기 처리 (Queue에 추가)
+                log.info("비동기 처리 시작 (Queue 추가): stockCode={}", stockCode);
+                StockPriceUpdateRequest request = StockPriceUpdateRequest.builder()
+                        .requestId(UUID.randomUUID().toString())
+                        .stockId(stockId)
+                        .stockCode(stockCode)
+                        .startDate(startDate)
+                        .endDate(today)
+                        .priority(priority)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+
+                String requestId = queue.enqueue(request);
+                return UpdateResponse.queuedAsync(requestId, request.estimateApiCalls());
+            }
 
         } catch (Exception e) {
-            log.error("종목 {} 시세 업데이트 중 오류 발생: {}", stockCode, e.getMessage(), e);
+            log.error("종목 {} 시세 업데이트 실패: {}", stockCode, e.getMessage(), e);
             throw new RuntimeException("시세 업데이트 실패: " + e.getMessage(), e);
         }
     }
 
     /**
-     * 지정 기간의 일봉 데이터를 KIS API에서 가져와 DB에 저장
+     * Queue 상태 조회
      */
-    private int fetchAndSavePrices(Long stockId, String stockCode, LocalDate startDate, LocalDate endDate) {
+    public RequestStatus getRequestStatus(String requestId) {
+        return queue.getStatus(requestId);
+    }
+
+    /**
+     * [수정] 동기 처리: Rate Limiter 적용
+     */
+    private int fetchAndSavePricesSync(Long stockId, String stockCode, LocalDate startDate, LocalDate endDate) {
         int totalSaved = 0;
         LocalDate currentEndDate = endDate;
 
         while (currentEndDate.isAfter(startDate) || currentEndDate.isEqual(startDate)) {
-            KisCandleResponse response = fetchCandleData(stockCode, startDate, currentEndDate);
+
+            // ⭐ Rate Limiter 토큰 획득 (최대 5초 대기)
+            try {
+                boolean acquired = rateLimiter.acquire("KIS_API", 5000);
+                if (!acquired) {
+                    throw new RateLimitException("KIS_API", 5000);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Rate Limiter 인터럽트 발생", e);
+            }
+
+            // ⭐ KisApiClient 사용 (캐시 우선)
+            KisCandleResponse response = kisApiClient.fetchCandleData(stockCode, startDate, currentEndDate);
 
             if (response == null || !response.isSuccess() || response.getOutput2() == null
                     || response.getOutput2().isEmpty()) {

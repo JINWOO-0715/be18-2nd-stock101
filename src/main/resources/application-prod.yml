@@ -28,7 +28,7 @@ spring:
           max-active: 20
           max-idle: 10
           min-idle: 5
-      timeout: 3000ms # 네트워크 타임아웃 단축
+      timeout: 1000ms # 네트워크 타임아웃 단축
 
   # File Upload Configuration
   servlet:

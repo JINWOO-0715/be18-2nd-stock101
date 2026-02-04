@@ -1,5 +1,6 @@
 package com.monstersinc.stock101.stock.service;
 
+import com.monstersinc.stock101.kis.dto.UpdateResponse;
 import com.monstersinc.stock101.kis.service.KisStockPriceService;
 import com.monstersinc.stock101.stock.model.dto.StockPriceResponseDto;
 import com.monstersinc.stock101.stock.model.mapper.StockMapper;
@@ -108,11 +109,15 @@ public class StockPriceService {
 
         try {
             log.info("📈 종목 {} 오늘 데이터 업데이트 시작", stockCode);
-            int savedCount = kisStockPriceService.updateStockPrices(stockCode);
+            UpdateResponse response = kisStockPriceService.updateStockPrices(stockCode);
 
-            if (savedCount > 0) {
+            // 동기 처리된 경우에만 즉시 캐시 갱신
+            if (!response.isAsync() && response.getSavedCount() != null && response.getSavedCount() > 0) {
                 redisTemplate.opsForValue().set(redisKey, today.format(DATE_FORMAT), 1, TimeUnit.DAYS);
-                log.info("✅ 종목 {} 업데이트 완료, Redis 캐시 갱신", stockCode);
+                log.info("✅ 종목 {} 업데이트 완료 (동기), Redis 캐시 갱신", stockCode);
+            } else if (response.isAsync()) {
+                log.info("⏳ 종목 {} 비동기 처리 중 (requestId: {})", stockCode, response.getRequestId());
+                // 비동기인 경우 캐시는 갱신하지 않음 (Worker 완료 후 갱신 필요)
             }
 
         } catch (Exception e) {
