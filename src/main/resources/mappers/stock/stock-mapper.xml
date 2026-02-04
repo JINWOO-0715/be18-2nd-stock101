@@ -29,9 +29,7 @@
             s.net_income,
             s.roe,
             s.base_date,
-            s.market_cap,
-            s.price,
-            s.fluctuation
+            s.market_cap
         FROM stocks s
     </sql>
 
@@ -63,8 +61,6 @@
         <result property="roe" column="roe"/>
         <result property="baseDate" column="base_date"/>
         <result property="marketCap" column="market_cap"/>
-        <result property="price" column="price"/>
-        <result property="fluctuation" column="fluctuation"/>
     </resultMap>
 
     <!-- 전체 조회 -->
@@ -155,8 +151,6 @@
             roe,
             base_date,
             market_cap,
-            price,
-            fluctuation
         ) VALUES (
             #{name}, 
             #{isDelisted},
@@ -182,8 +176,6 @@
             #{roe},
             #{baseDate},
             #{marketCap},
-            #{price},
-            #{fluctuation}
         )
     </insert>
 </mapper>

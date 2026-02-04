@@ -75,8 +75,6 @@ public class StockMstService {
                         .individualIndicator(existingStock.getIndividualIndicator())
                         .analystIndicator(existingStock.getAnalystIndicator())
                         .newsIndicator(existingStock.getNewsIndicator())
-                        .price(existingStock.getPrice())
-                        .fluctuation(existingStock.getFluctuation())
                         .build();
                 
                 stockMapper.updateStockBasicInfo(updateStock);
@@ -114,8 +112,6 @@ public class StockMstService {
                         .individualIndicator("HOLD")
                         .analystIndicator("HOLD")
                         .newsIndicator("NEUTRAL")
-                        .price(0.0)
-                        .fluctuation(0.0)
                         .build();
                 
                 stockMapper.insertStock(newStock);

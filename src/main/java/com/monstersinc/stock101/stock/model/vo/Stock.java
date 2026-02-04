@@ -57,11 +57,7 @@ public class Stock {
     private Double roe; // ROE(자기자본이익률)
     private String baseDate; // 기준년월 (YYYYMMDD)
     private Long marketCap; // 시가총액 (억)
-    
-    // 현재 시세
-    private Double price; // 현재가
-    private Double fluctuation; // 등락률
-    
+
     // 지표
     private String individualIndicator; // 개미 지표 (STRONG_SELL, SELL, HOLD, BUY, STRONG_BUY)
     private String analystIndicator; // 전문가 지표 (STRONG_SELL, SELL, HOLD, BUY, STRONG_BUY)

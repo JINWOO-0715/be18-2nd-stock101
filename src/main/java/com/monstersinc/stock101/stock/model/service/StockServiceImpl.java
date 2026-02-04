@@ -2,12 +2,15 @@ package com.monstersinc.stock101.stock.model.service;
 
 import com.monstersinc.stock101.exception.GlobalException;
 import com.monstersinc.stock101.exception.message.GlobalExceptionMessage;
+import com.monstersinc.stock101.stock.model.dto.StocksCacheDto;
 import com.monstersinc.stock101.stock.model.mapper.StockMapper;
 import com.monstersinc.stock101.stock.model.vo.Stock;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -15,12 +18,18 @@ public class StockServiceImpl implements StockService {
     private final StockMapper stockMapper;
 
     @Override
-    public List<Stock> getStockList() {
+    @Cacheable(value = "stocks", key = "'all'")
+    public List<StocksCacheDto> getStockList() {
+
         List<Stock> stockList = stockMapper.selectStockList();
+
         if(stockList == null || stockList.isEmpty()) {
             throw new GlobalException(GlobalExceptionMessage.STOCK_NOT_FOUND);
         }
-        return stockList;
+
+        return stockList.stream()
+                .map(StocksCacheDto::from)
+                .collect(Collectors.toList());
     }
 
     @Override

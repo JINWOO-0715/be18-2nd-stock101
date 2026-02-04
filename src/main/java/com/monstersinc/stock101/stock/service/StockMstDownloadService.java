@@ -193,8 +193,6 @@ public class StockMstDownloadService {
         stock.setIsSuspended(normalizeYn(dto.getTrhtYn()));
 
         // 현재가 정보 (MST 파일에는 없으므로 기본값 설정)
-        stock.setPrice(0.0);
-        stock.setFluctuation(0.0);
 
         // 지표 정보 (MST 파일에는 없으므로 기본값 설정)
         stock.setIndividualIndicator("HOLD");

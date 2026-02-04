@@ -2,9 +2,11 @@ package com.monstersinc.stock101.stock.controller;
 
 import com.monstersinc.stock101.common.model.dto.BaseResponseDto;
 import com.monstersinc.stock101.common.model.dto.ItemsResponseDto;
+import com.monstersinc.stock101.stock.model.dto.StocksCacheDto;
 import com.monstersinc.stock101.stock.model.service.StockService;
 import com.monstersinc.stock101.stock.model.vo.Stock;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,8 +25,8 @@ public class StockController {
 
     // 모든 주식 정보 조회
     @GetMapping
-    public ResponseEntity<ItemsResponseDto<Stock>> getAllStocks() {
-        List<Stock> stocks = stockService.getStockList();
+    public ResponseEntity<ItemsResponseDto<StocksCacheDto>> getAllStocks() {
+        List<StocksCacheDto> stocks = stockService.getStockList();
         return ResponseEntity.ok(ItemsResponseDto.ofAll(HttpStatus.OK, stocks));
     }
 

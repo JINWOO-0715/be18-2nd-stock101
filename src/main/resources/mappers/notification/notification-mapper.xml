@@ -28,7 +28,7 @@
     <select id="findByUserId" parameterType="Long" resultMap="notificationResultMap">
         SELECT id, user_id, document_id, message, is_read, created_at
         FROM notifications
-        WHERE user_id = #{userId}
+        WHERE user_id = #{userId} AND is_deleted = 0
         ORDER BY created_at DESC
     </select>
 
@@ -36,7 +36,7 @@
     <select id="findUnreadByUserId" parameterType="Long" resultMap="notificationResultMap">
         SELECT id, user_id, document_id, message, is_read, created_at
         FROM notifications
-        WHERE user_id = #{userId} AND is_read = 0
+        WHERE user_id = #{userId} AND is_read = 0 AND AND is_deleted = 0
         ORDER BY created_at DESC
     </select>
 
@@ -44,7 +44,7 @@
     <select id="findById" parameterType="Long" resultMap="notificationResultMap">
         SELECT id, user_id, document_id, message, is_read, created_at
         FROM notifications
-        WHERE id = #{id}
+        WHERE id = #{id} AND is_deleted = 0
     </select>
 
     <!-- 알림 읽음 처리 -->
@@ -58,7 +58,7 @@
     <update id="markAllAsReadByUserId" parameterType="Long">
         UPDATE notifications
         SET is_read = 1
-        WHERE user_id = #{userId} AND is_read = 0
+        WHERE user_id = #{userId} AND is_read = 1
     </update>
 
     <!-- 사용자의 미읽음 알림 개수 조회 -->
@@ -70,7 +70,8 @@
 
     <!-- 알림 삭제 -->
     <delete id="deleteById" parameterType="Long">
-        DELETE FROM notifications
+        UPDATE notirications
+        SET is_deleted = 1
         WHERE id = #{id}
     </delete>
 

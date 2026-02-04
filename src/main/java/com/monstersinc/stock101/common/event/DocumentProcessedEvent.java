@@ -37,20 +37,20 @@ public class DocumentProcessedEvent extends ApplicationEvent {
         this.companyName = companyName;
         this.status = status;
     }
-
-    /**
-     * 처리 성공 이벤트 생성 팩토리 메서드
-     */
-    public static DocumentProcessedEvent success(Object source, Long sourceId, Long userId, String companyName) {
-        return new DocumentProcessedEvent(source, sourceId, userId, companyName, "COMPLETED");
-    }
-
-    /**
-     * 처리 실패 이벤트 생성 팩토리 메서드
-     */
-    public static DocumentProcessedEvent failure(Object source, Long sourceId, Long userId, String companyName) {
-        return new DocumentProcessedEvent(source, sourceId, userId, companyName, "FAILED");
-    }
+//
+//    /**
+//     * 처리 성공 이벤트 생성 팩토리 메서드
+//     */
+//    public static DocumentProcessedEvent success(Object source, Long sourceId, Long userId, String companyName) {
+//        return new DocumentProcessedEvent(source, sourceId, userId, companyName, "COMPLETED");
+//    }
+//
+//    /**
+//     * 처리 실패 이벤트 생성 팩토리 메서드
+//     */
+//    public static DocumentProcessedEvent failure(Object source, Long sourceId, Long userId, String companyName) {
+//        return new DocumentProcessedEvent(source, sourceId, userId, companyName, "FAILED");
+//    }
 
     /**
      * 성공 여부 확인

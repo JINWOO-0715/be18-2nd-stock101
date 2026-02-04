@@ -58,7 +58,11 @@ apikey:
 # Server Configuration
 server:
   port: 8080
-  servlet:
+  compression:        # 추가된 부분 시작
+    enabled: true
+    mime-types: application/json,text/plain,text/xml,application/xml  # 압축할 타입들
+    min-response-size: 1024 # 1KB 이상일 때만 압축
+  servlet:            # 기존 설정 유지
     context-path: /
     encoding:
       charset: UTF-8
